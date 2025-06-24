@@ -5,8 +5,11 @@ import connectDB from './config/db.js';
 import authRoutes from './routes/auth.routes.js';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './docs/swagger.js';
+import validateEnv from './utils/validateEnv.js';
+import authMiddleware from './middleware/auth.middleware.js';
 
 dotenv.config();
+validateEnv();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +23,11 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
 app.use('/api/auth', authRoutes);
+
+// Example protected route using auth middleware
+app.get('/api/protected', authMiddleware, (req, res) => {
+  res.json({ message: 'This is a protected route', user: req.user });
+});
 
 // Health check route
 app.get('/', (req, res) => {
