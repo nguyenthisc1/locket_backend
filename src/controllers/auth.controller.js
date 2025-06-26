@@ -20,6 +20,7 @@ export const loginValidation = [
 
 // Register controller
 export const register = async (req, res) => {
+	console.log("🚀 ~ register ~ req, res:", req, res)
 	const errors = validationResult(req);
 	if (!errors.isEmpty()) {
 		return res.status(400).json({ errors: errors.array() });
@@ -145,5 +146,19 @@ export const refreshToken = async (req, res) => {
 		res.json({ accessToken, refreshToken: newRefreshToken });
 	} catch (err) {
 		res.status(401).json({ message: "Invalid refresh token", error: err.message });
+	}
+};
+
+// Logout controller
+export const logout = (req, res) => {
+	try {
+		res.clearCookie("refreshToken", {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === "production",
+			sameSite: "Strict",
+		});
+		res.status(200).json({ message: "Logged out successfully" });
+	} catch (err) {
+		res.status(500).json({ message: "Logout failed", error: err.message });
 	}
 };

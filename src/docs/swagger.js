@@ -1,5 +1,8 @@
 import swaggerJSDoc from 'swagger-jsdoc';
 import path from 'path';
+import validateEnv from '../utils/validateEnv.js';
+
+const PORT = process.env.PORT || 8000;
 
 const options = {
   definition: {
@@ -10,7 +13,7 @@ const options = {
       description: 'API documentation for the Locket clone backend with authentication, user management, and social features',
     },
     servers: [
-      { url: 'http://localhost:3000' }
+      { url:  `http://localhost:${PORT}` }
     ],
     components: {
       securitySchemes: {
