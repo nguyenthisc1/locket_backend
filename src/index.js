@@ -16,7 +16,7 @@ const PORT = validateEnv.PORT || 8000;
 
 // Middleware
 app.use(cors({
-  origin: '*',
+  origin: `http://localhost:${PORT}`, 
   credentials: true
 }));
 app.use(express.json());

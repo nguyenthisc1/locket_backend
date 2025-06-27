@@ -1,6 +1,11 @@
 import User from '../models/user.model.js';
 import bcrypt from 'bcryptjs';
 import { validationResult } from 'express-validator';
+import { 
+  UpdateProfileDTO, 
+  UserProfileResponseDTO, 
+  UserListDTO 
+} from '../dtos/index.js';
 
 // Get user profile
 export const getProfile = async (req, res) => {
@@ -9,7 +14,9 @@ export const getProfile = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.json({ user });
+    
+    const profileResponse = UserProfileResponseDTO.fromUser(user);
+    res.json(profileResponse.toJSON());
   } catch (error) {
     console.error('Error fetching user profile:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -27,19 +34,13 @@ export const updateProfile = async (req, res) => {
       });
     }
 
-    const { username, email, phoneNumber, avatarUrl } = req.body;
-    const updateData = {};
-
-    // Only update fields that are provided
-    if (username) updateData.username = username;
-    if (email) updateData.email = email;
-    if (phoneNumber) updateData.phoneNumber = phoneNumber;
-    if (avatarUrl) updateData.avatarUrl = avatarUrl;
+    const updateData = new UpdateProfileDTO(req.body);
+    const updateFields = updateData.toUpdateData();
 
     // Check if email or phone number already exists (excluding current user)
-    if (email) {
+    if (updateFields.email) {
       const existingUser = await User.findOne({ 
-        email, 
+        email: updateFields.email, 
         _id: { $ne: req.user._id } 
       });
       if (existingUser) {
@@ -47,9 +48,9 @@ export const updateProfile = async (req, res) => {
       }
     }
 
-    if (phoneNumber) {
+    if (updateFields.phoneNumber) {
       const existingUser = await User.findOne({ 
-        phoneNumber, 
+        phoneNumber: updateFields.phoneNumber, 
         _id: { $ne: req.user._id } 
       });
       if (existingUser) {
@@ -59,7 +60,7 @@ export const updateProfile = async (req, res) => {
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      updateData,
+      updateFields,
       { new: true, runValidators: true }
     ).select('-passwordHash');
 
@@ -67,9 +68,10 @@ export const updateProfile = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    const profileResponse = UserProfileResponseDTO.fromUser(updatedUser);
     res.json({ 
       message: 'Profile updated successfully', 
-      user: updatedUser 
+      ...profileResponse.toJSON()
     });
   } catch (error) {
     console.error('Error updating user profile:', error);
@@ -93,10 +95,48 @@ export const deleteAccount = async (req, res) => {
 };
 
 // Validation middleware for profile updates
-export const updateProfileValidation = [
-  // Add your validation rules here using express-validator
-  // Example:
-  // body('username').optional().isLength({ min: 3, max: 30 }),
-  // body('email').optional().isEmail(),
-  // body('phoneNumber').optional().isMobilePhone(),
-];
+export const updateProfileValidation = UpdateProfileDTO.validationRules();
+
+// Search users
+export const searchUsers = async (req, res) => {
+  try {
+    const { query, limit = 10, page = 1 } = req.query;
+    const skip = (page - 1) * limit;
+
+    let searchQuery = {};
+    if (query) {
+      searchQuery = {
+        $or: [
+          { username: { $regex: query, $options: 'i' } },
+          { email: { $regex: query, $options: 'i' } }
+        ]
+      };
+    }
+
+    // Exclude current user from search results
+    searchQuery._id = { $ne: req.user._id };
+
+    const users = await User.find(searchQuery)
+      .select('-passwordHash')
+      .limit(parseInt(limit))
+      .skip(skip)
+      .sort({ username: 1 });
+
+    const total = await User.countDocuments(searchQuery);
+    const totalPages = Math.ceil(total / limit);
+
+    const pagination = {
+      currentPage: parseInt(page),
+      totalPages,
+      totalUsers: total,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1
+    };
+
+    const userListResponse = UserListDTO.fromUsers(users, pagination);
+    res.json(userListResponse.toJSON());
+  } catch (error) {
+    console.error('Error searching users:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
