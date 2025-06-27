@@ -2,6 +2,10 @@ paths:
   /api/auth/register:
     post:
       summary: Register a new user
+      description: |
+        Register a new user account. Returns access and refresh tokens upon successful registration.
+        
+        **Note:** The refresh token is automatically stored in an httpOnly cookie.
       tags: [Authentication]
       requestBody:
         required: true
@@ -9,6 +13,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RegisterRequest'
+            example:
+              username: "john_doe"
+              email: "john@example.com"
+              phoneNumber: "+1234567890"
+              password: "Password123"
       responses:
         '201':
           description: User registered successfully
@@ -16,6 +25,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
+              example:
+                accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                user:
+                  id: "507f1f77bcf86cd799439011"
+                  username: "john_doe"
+                  email: "john@example.com"
+                  phoneNumber: "+1234567890"
         '400':
           description: Validation error
           content:
@@ -36,6 +53,10 @@ paths:
   /api/auth/login:
     post:
       summary: Login user with email/phone and password
+      description: |
+        Login with either email or phone number and password. Returns access and refresh tokens.
+        
+        **Note:** The refresh token is automatically stored in an httpOnly cookie.
       tags: [Authentication]
       requestBody:
         required: true
@@ -43,6 +64,17 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginRequest'
+            examples:
+              login_with_email:
+                summary: Login with email
+                value:
+                  email: "john@example.com"
+                  password: "Password123"
+              login_with_phone:
+                summary: Login with phone number
+                value:
+                  phoneNumber: "+1234567890"
+                  password: "Password123"
       responses:
         '200':
           description: Login successful
@@ -50,6 +82,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
+              example:
+                accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                user:
+                  id: "507f1f77bcf86cd799439011"
+                  username: "john_doe"
+                  email: "john@example.com"
+                  phoneNumber: "+1234567890"
         '400':
           description: Validation error
           content:
@@ -80,6 +120,11 @@ paths:
   /api/auth/refresh:
     post:
       summary: Refresh access token using refresh token from cookies
+      description: |
+        Refresh the access token using the refresh token stored in httpOnly cookies.
+        Returns new access and refresh tokens.
+        
+        **Note:** This endpoint automatically reads the refresh token from cookies.
       tags: [Authentication]
       responses:
         '200':
@@ -88,6 +133,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RefreshTokenResponse'
+              example:
+                accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
         '401':
           description: Invalid or missing refresh token
           content:
@@ -98,3 +146,32 @@ paths:
                   message:
                     type: string
                     example: Invalid refresh token
+
+  /api/auth/logout:
+    post:
+      summary: Logout user and clear refresh token
+      description: |
+        Logout the user by clearing the refresh token from cookies.
+        The access token will become invalid on the next request.
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logged out successfully
+        '500':
+          description: Logout failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logout failed

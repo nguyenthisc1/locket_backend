@@ -2,6 +2,10 @@ paths:
   /api/users/profile:
     get:
       summary: Get current user profile
+      description: |
+        Retrieve the profile of the currently authenticated user.
+        
+        **Authentication Required:** Include the access token in the Authorization header.
       tags: [Users]
       security:
         - bearerAuth: []
@@ -11,10 +15,19 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  user:
-                    $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/UserProfileResponse'
+              example:
+                user:
+                  _id: "507f1f77bcf86cd799439011"
+                  username: "john_doe"
+                  email: "john@example.com"
+                  phoneNumber: "+1234567890"
+                  avatarUrl: "https://example.com/avatar.jpg"
+                  isVerified: true
+                  lastActiveAt: "2024-01-15T10:30:00.000Z"
+                  friends: []
+                  chatRooms: []
+                  createdAt: "2024-01-01T00:00:00.000Z"
         '401':
           description: Unauthorized - Invalid or missing token
           content:
@@ -24,7 +37,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: No token provided
+                    example: Missing or invalid token
         '404':
           description: User not found
           content:
@@ -38,6 +51,12 @@ paths:
 
     put:
       summary: Update current user profile
+      description: |
+        Update the profile of the currently authenticated user.
+        
+        **Authentication Required:** Include the access token in the Authorization header.
+        
+        **Note:** All fields are optional. Only provided fields will be updated.
       tags: [Users]
       security:
         - bearerAuth: []
@@ -47,6 +66,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ProfileUpdateRequest'
+            example:
+              username: "new_username"
+              email: "newemail@example.com"
+              phoneNumber: "+1987654321"
+              avatarUrl: "https://example.com/new-avatar.jpg"
       responses:
         '200':
           description: Profile updated successfully
@@ -75,7 +99,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: No token provided
+                    example: Missing or invalid token
         '404':
           description: User not found
           content:
@@ -87,9 +111,113 @@ paths:
                     type: string
                     example: User not found
 
+  /api/users/search:
+    get:
+      summary: Search users
+      description: |
+        Search for users by username or email. Results exclude the current user.
+        
+        **Authentication Required:** Include the access token in the Authorization header.
+        
+        **Query Parameters:**
+        - `query` (optional): Search term for username or email
+        - `limit` (optional): Number of results per page (1-50, default: 10)
+        - `page` (optional): Page number (default: 1)
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          description: Search term for username or email
+          required: false
+          schema:
+            type: string
+            example: "john"
+        - name: limit
+          in: query
+          description: Number of results per page (1-50)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+            example: 10
+        - name: page
+          in: query
+          description: Page number
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+      responses:
+        '200':
+          description: Users found successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+              example:
+                users:
+                  - _id: "507f1f77bcf86cd799439012"
+                    username: "john_doe"
+                    email: "john@example.com"
+                    phoneNumber: "+1234567890"
+                    avatarUrl: "https://example.com/avatar1.jpg"
+                    isVerified: true
+                    lastActiveAt: "2024-01-15T10:30:00.000Z"
+                    friends: []
+                    chatRooms: []
+                    createdAt: "2024-01-01T00:00:00.000Z"
+                  - _id: "507f1f77bcf86cd799439013"
+                    username: "jane_smith"
+                    email: "jane@example.com"
+                    phoneNumber: "+1987654321"
+                    avatarUrl: "https://example.com/avatar2.jpg"
+                    isVerified: false
+                    lastActiveAt: "2024-01-15T09:15:00.000Z"
+                    friends: []
+                    chatRooms: []
+                    createdAt: "2024-01-02T00:00:00.000Z"
+                pagination:
+                  currentPage: 1
+                  totalPages: 5
+                  totalUsers: 50
+                  hasNextPage: true
+                  hasPrevPage: false
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Missing or invalid token
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Internal server error
+
   /api/users/account:
     delete:
       summary: Delete current user account
+      description: |
+        Permanently delete the currently authenticated user's account.
+        
+        **Authentication Required:** Include the access token in the Authorization header.
+        
+        **Warning:** This action cannot be undone.
       tags: [Users]
       security:
         - bearerAuth: []
@@ -113,7 +241,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: No token provided
+                    example: Missing or invalid token
         '404':
           description: User not found
           content:
