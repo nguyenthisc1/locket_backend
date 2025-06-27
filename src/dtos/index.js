@@ -7,4 +7,14 @@ export {
   UserProfileResponseDTO,
   UserListDTO,
   SearchUsersDTO
-} from './user.dto.js'; 
+} from './user.dto.js';
+
+export {
+  PhotoDTO,
+  CreatePhotoDTO,
+  UpdatePhotoDTO,
+  AddReactionDTO,
+  PhotoResponseDTO,
+  PhotoListResponseDTO,
+  SearchPhotosDTO
+} from './photo.dto.js'; 

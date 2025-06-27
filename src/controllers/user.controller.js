@@ -1,11 +1,10 @@
-import User from '../models/user.model.js';
-import bcrypt from 'bcryptjs';
 import { validationResult } from 'express-validator';
-import { 
-  UpdateProfileDTO, 
-  UserProfileResponseDTO, 
-  UserListDTO 
+import {
+  UpdateProfileDTO,
+  UserListDTO,
+  UserProfileResponseDTO
 } from '../dtos/index.js';
+import User from '../models/user.model.js';
 
 // Get user profile
 export const getProfile = async (req, res) => {

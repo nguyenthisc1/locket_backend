@@ -9,6 +9,7 @@ import authMiddleware from './middleware/auth.middleware.js';
 
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
+import photoRoutes from './routes/photo.routes.js';
 
 dotenv.config();
 validateEnv();
@@ -24,16 +25,12 @@ app.use(cors({
 app.use(express.json());
 
 // API Documentation
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-
-// Example protected route using auth middleware
-app.get('/api/protected', authMiddleware, (req, res) => {
-  res.json({ message: 'This is a protected route', user: req.user });
-});
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/photo', photoRoutes);
 
 // Health check route
 app.get('/', (req, res) => {

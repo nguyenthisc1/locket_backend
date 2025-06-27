@@ -1,0 +1,382 @@
+paths:
+  /api/v1/photo:
+    get:
+      summary: Get all photos with filtering and pagination
+      description: |
+        Retrieve photos with optional filtering and pagination.
+        
+        **Authentication Required:** Include the access token in the Authorization header.
+        
+        **Query Parameters:**
+        - `query` (optional): Search photos by caption
+        - `userId` (optional): Filter by specific user
+        - `sharedWithMe` (optional): Show only photos shared with current user
+        - `limit` (optional): Number of results per page (1-50, default: 10)
+        - `page` (optional): Page number (default: 1)
+      tags: [Photos]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          description: Search term for photo captions
+          required: false
+          schema:
+            type: string
+            example: "vacation"
+        - name: userId
+          in: query
+          description: Filter by specific user ID
+          required: false
+          schema:
+            type: string
+            example: "507f1f77bcf86cd799439011"
+        - name: sharedWithMe
+          in: query
+          description: Show only photos shared with current user
+          required: false
+          schema:
+            type: string
+            enum: ["true", "false"]
+            example: "true"
+        - name: limit
+          in: query
+          description: Number of results per page (1-50)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+            example: 10
+        - name: page
+          in: query
+          description: Page number
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+      responses:
+        '200':
+          description: Photos retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhotoListResponse'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Create a new photo
+      description: |
+        Create a new photo with optional caption, sharing, and location data.
+        
+        **Authentication Required:** Include the access token in the Authorization header.
+      tags: [Photos]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePhotoRequest'
+            example:
+              imageUrl: "https://example.com/photo.jpg"
+              caption: "Amazing sunset at the beach! 🌅"
+              sharedWith: ["507f1f77bcf86cd799439012", "507f1f77bcf86cd799439013"]
+              location:
+                lat: 40.7128
+                lng: -74.0060
+      responses:
+        '201':
+          description: Photo created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhotoResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/photo/{photoId}:
+    get:
+      summary: Get a specific photo by ID
+      description: |
+        Retrieve a specific photo by its ID. User must own the photo or have it shared with them.
+        
+        **Authentication Required:** Include the access token in the Authorization header.
+      tags: [Photos]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: photoId
+          in: path
+          description: Photo ID
+          required: true
+          schema:
+            type: string
+            example: "507f1f77bcf86cd799439011"
+      responses:
+        '200':
+          description: Photo retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhotoResponse'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied - Photo not shared with user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Photo not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update a photo
+      description: |
+        Update a photo's caption, sharing settings, or location. Only the photo owner can update.
+        
+        **Authentication Required:** Include the access token in the Authorization header.
+      tags: [Photos]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: photoId
+          in: path
+          description: Photo ID
+          required: true
+          schema:
+            type: string
+            example: "507f1f77bcf86cd799439011"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePhotoRequest'
+            example:
+              caption: "Updated caption for the photo"
+              sharedWith: ["507f1f77bcf86cd799439012"]
+              location:
+                lat: 40.7589
+                lng: -73.9851
+      responses:
+        '200':
+          description: Photo updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhotoResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied - Not the photo owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Photo not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete a photo
+      description: |
+        Permanently delete a photo. Only the photo owner can delete.
+        
+        **Authentication Required:** Include the access token in the Authorization header.
+        
+        **Warning:** This action cannot be undone.
+      tags: [Photos]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: photoId
+          in: path
+          description: Photo ID
+          required: true
+          schema:
+            type: string
+            example: "507f1f77bcf86cd799439011"
+      responses:
+        '200':
+          description: Photo deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Photo deleted successfully
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied - Not the photo owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Photo not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/photo/{photoId}/reactions:
+    post:
+      summary: Add or update reaction to a photo
+      description: |
+        Add a reaction to a photo or update existing reaction. User must have access to the photo.
+        
+        **Authentication Required:** Include the access token in the Authorization header.
+      tags: [Photos]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: photoId
+          in: path
+          description: Photo ID
+          required: true
+          schema:
+            type: string
+            example: "507f1f77bcf86cd799439011"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddReactionRequest'
+            example:
+              type: "❤️"
+      responses:
+        '200':
+          description: Reaction added/updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhotoResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied - No access to photo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Photo not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Remove reaction from a photo
+      description: |
+        Remove user's reaction from a photo. User must have access to the photo.
+        
+        **Authentication Required:** Include the access token in the Authorization header.
+      tags: [Photos]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: photoId
+          in: path
+          description: Photo ID
+          required: true
+          schema:
+            type: string
+            example: "507f1f77bcf86cd799439011"
+      responses:
+        '200':
+          description: Reaction removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhotoResponse'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied - No access to photo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Photo not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse' 
