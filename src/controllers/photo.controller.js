@@ -11,39 +11,77 @@ import {
 } from '../dtos/index.js';
 
 // Get all photos (with pagination and filtering)
+// export const getPhotos = async (req, res) => {
+// 	try {
+// 		const { query, userId, sharedWithMe, limit = 10, page = 1 } = req.query;
+// 		const skip = (page - 1) * limit;
+
+// 		let searchQuery = {};
+
+// 		if (userId) searchQuery.userId = userId;
+// 		if (sharedWithMe === 'true') searchQuery.sharedWith = req.user._id;
+// 		if (query) searchQuery.caption = { $regex: query, $options: 'i' };
+
+// 		const photos = await Photo.find(searchQuery)
+// 			.populate('userId', 'username avatarUrl')
+// 			.populate('sharedWith', 'username avatarUrl')
+// 			.sort({ createdAt: -1 })
+// 			.limit(parseInt(limit))
+// 			.skip(skip);
+
+// 		const total = await Photo.countDocuments(searchQuery);
+// 		const totalPages = Math.ceil(total / limit);
+
+// 		const pagination = {
+// 			currentPage: parseInt(page),
+// 			totalPages,
+// 			totalPhotos: total,
+// 			hasNextPage: page < totalPages,
+// 			hasPrevPage: page > 1
+// 		};
+
+// 		const photoListResponse = PhotoListResponseDTO.fromPhotos(photos, pagination);
+// 		res.json(photoListResponse.toJSON());
+// 	} catch (error) {
+// 		console.error('Error fetching photos:', error);
+// 		res.status(500).json({ message: 'Internal server error' });
+// 	}
+// };
+
+// Get photos for feed (with cursor-based pagination)
 export const getPhotos = async (req, res) => {
 	try {
-		const { query, userId, sharedWithMe, limit = 10, page = 1 } = req.query;
-		const skip = (page - 1) * limit;
+		const { query, userId, sharedWithMe, limit = 10, lastCreatedAt } = req.query;
+		const parsedLimit = parseInt(limit);
 
 		let searchQuery = {};
 
 		if (userId) searchQuery.userId = userId;
 		if (sharedWithMe === 'true') searchQuery.sharedWith = req.user._id;
 		if (query) searchQuery.caption = { $regex: query, $options: 'i' };
+		if (lastCreatedAt) {
+			searchQuery.createdAt = { $lt: new Date(lastCreatedAt) };
+		}
 
 		const photos = await Photo.find(searchQuery)
 			.populate('userId', 'username avatarUrl')
 			.populate('sharedWith', 'username avatarUrl')
 			.sort({ createdAt: -1 })
-			.limit(parseInt(limit))
-			.skip(skip);
+			.limit(parsedLimit);
 
-		const total = await Photo.countDocuments(searchQuery);
-		const totalPages = Math.ceil(total / limit);
+		const hasNextPage = photos.length === parsedLimit;
+		const nextCursor = hasNextPage ? photos[photos.length - 1].createdAt : null;
 
 		const pagination = {
-			currentPage: parseInt(page),
-			totalPages,
-			totalPhotos: total,
-			hasNextPage: page < totalPages,
-			hasPrevPage: page > 1
+			limit: parsedLimit,
+			hasNextPage,
+			nextCursor, 
 		};
 
 		const photoListResponse = PhotoListResponseDTO.fromPhotos(photos, pagination);
 		res.json(photoListResponse.toJSON());
 	} catch (error) {
-		console.error('Error fetching photos:', error);
+		console.error('Error fetching photos (cursor-based):', error);
 		res.status(500).json({ message: 'Internal server error' });
 	}
 };

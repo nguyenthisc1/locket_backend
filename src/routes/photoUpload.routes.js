@@ -13,7 +13,7 @@ const router = express.Router();
 // All upload routes require authentication
 router.use(authMiddleware);
 
-router.post('/upload', uploadSingleImage, handleUploadError, uploadPhoto);
+router.post('/', uploadSingleImage, handleUploadError, uploadPhoto);
 
 router.post('/upload-multiple', uploadMultiplePhotos);
 

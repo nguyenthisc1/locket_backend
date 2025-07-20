@@ -16,6 +16,7 @@ export const loginValidation = LoginUserDTO.validationRules();
 
 // Register controller
 export const register = async (req, res) => {
+	console.log("🚀 ~ register ~ req, res:", req, res)
 	const errors = validationResult(req);
 	if (!errors.isEmpty()) {
 		return res.status(400).json({ errors: errors.array() });

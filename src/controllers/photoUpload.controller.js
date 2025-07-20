@@ -1,8 +1,7 @@
 import { validationResult } from 'express-validator';
-import CloudinaryService from '../utils/cloudinaryService.js';
+import { PhotoResponseDTO } from '../dtos/index.js';
 import Photo from '../models/photo.model.js';
-import User from '../models/user.model.js';
-import { CreatePhotoDTO, PhotoResponseDTO } from '../dtos/index.js';
+import CloudinaryService from '../utils/cloudinaryService.js';
 
 /**
  * Upload photo from Flutter app
@@ -18,7 +17,11 @@ export const uploadPhoto = async (req, res) => {
       });
     }
 
+
     const { caption, sharedWith, location, imageData } = req.body;
+
+    console.log(req.body.imageData.slice(0, 100))
+
     
     let cloudinaryResult;
 

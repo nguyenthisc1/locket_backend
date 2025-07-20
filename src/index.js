@@ -18,6 +18,7 @@ validateEnv();
 
 const app = express();
 const PORT = validateEnv.PORT || 8000;
+const API_VERSION =  'api/v1'
 
 // Middleware
 app.use(cors({
@@ -28,15 +29,15 @@ app.use(express.json({ limit: '50mb' })); // Increased limit for image uploads
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // API Documentation
-app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use(`/${API_VERSION}/docs`, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/users', userRoutes);
-app.use('/api/v1/photo', photoRoutes);
-app.use('/api/v1/upload', photoUploadRoutes);
-app.use('/api/v1/conversations', conversationRoutes);
-app.use('/api/v1/messages', messageRoutes);
+app.use(`/${API_VERSION}/auth`, authRoutes);
+app.use(`/${API_VERSION}/users`, userRoutes);
+app.use(`/${API_VERSION}/photo`, photoRoutes);
+app.use(`/${API_VERSION}/upload`, photoUploadRoutes);
+app.use(`/${API_VERSION}/conversations`, conversationRoutes);
+app.use(`/${API_VERSION}/messages`, messageRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
@@ -54,7 +55,7 @@ const startServer = async () => {
   try {
     await connectDB();
     app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+      console.log(`Server is running on host http://localhost:${PORT}/${API_VERSION}`);
     });
   } catch (err) {
     console.error('Failed to connect to database:', err);

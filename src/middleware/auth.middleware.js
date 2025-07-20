@@ -5,9 +5,9 @@ const authMiddleware = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   
   // Debug logging
-  console.log('🔐 Auth Middleware Debug:');
-  console.log('Headers:', req.headers);
-  console.log('Authorization header:', authHeader);
+  // console.log('🔐 Auth Middleware Debug:');
+  // console.log('Headers:', req.headers);
+  // console.log('Authorization header:', authHeader);
 
   if (!authHeader?.startsWith('Bearer ')) {
     console.log('❌ No Bearer token found in Authorization header');
