@@ -1,5 +1,7 @@
 import path from 'path';
 import swaggerJSDoc from 'swagger-jsdoc';
+import fs from 'fs';
+import yaml from 'js-yaml';
 
 const PORT = process.env.PORT || 8000;
 
@@ -379,6 +381,48 @@ const options = {
   ],
 };
 
+// Load YAML documentation files
+const loadYamlDocs = () => {
+  const docsDir = path.resolve('src/docs');
+  const yamlFiles = ['conversation.docs.yaml', 'message.docs.yaml'];
+  const yamlDocs = [];
+
+  yamlFiles.forEach(file => {
+    try {
+      const filePath = path.join(docsDir, file);
+      if (fs.existsSync(filePath)) {
+        const fileContent = fs.readFileSync(filePath, 'utf8');
+        const parsed = yaml.load(fileContent);
+        yamlDocs.push(parsed);
+      }
+    } catch (error) {
+      console.warn(`Warning: Could not load ${file}:`, error.message);
+    }
+  });
+
+  return yamlDocs;
+};
+
 const swaggerSpec = swaggerJSDoc(options);
+
+// Merge YAML docs with main spec
+const yamlDocs = loadYamlDocs();
+if (yamlDocs.length > 0) {
+  // Merge paths
+  yamlDocs.forEach(doc => {
+    if (doc.paths) {
+      Object.assign(swaggerSpec.paths, doc.paths);
+    }
+    // Merge components
+    if (doc.components) {
+      if (doc.components.schemas) {
+        Object.assign(swaggerSpec.components.schemas, doc.components.schemas);
+      }
+      if (doc.components.securitySchemes) {
+        Object.assign(swaggerSpec.components.securitySchemes, doc.components.securitySchemes);
+      }
+    }
+  });
+}
 
 export default swaggerSpec;

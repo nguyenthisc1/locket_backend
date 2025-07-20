@@ -9,6 +9,7 @@ const reactionSchema = new mongoose.Schema({
 const photoSchema = new mongoose.Schema({
 	userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 	imageUrl: { type: String, required: true },
+	publicId: { type: String }, // Cloudinary public ID for management
 	caption: { type: String, maxlength: 500 },
 	sharedWith: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 	location: {
@@ -29,5 +30,6 @@ photoSchema.pre('save', function(next) {
 // Index for better query performance
 photoSchema.index({ userId: 1, createdAt: -1 });
 photoSchema.index({ sharedWith: 1, createdAt: -1 });
+photoSchema.index({ publicId: 1 }); // Index for Cloudinary public ID
 
 export default mongoose.model("Photo", photoSchema);

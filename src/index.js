@@ -1,15 +1,17 @@
-import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import connectDB from './config/db.js';
+import express from 'express';
 import swaggerUi from 'swagger-ui-express';
+import connectDB from './config/db.js';
 import swaggerSpec from './docs/swagger.js';
 import validateEnv from './utils/validateEnv.js';
-import authMiddleware from './middleware/auth.middleware.js';
 
 import authRoutes from './routes/auth.routes.js';
-import userRoutes from './routes/user.routes.js';
 import photoRoutes from './routes/photo.routes.js';
+import photoUploadRoutes from './routes/photoUpload.routes.js';
+import userRoutes from './routes/user.routes.js';
+import conversationRoutes from './routes/conversation.routes.js';
+import messageRoutes from './routes/message.routes.js';
 
 dotenv.config();
 validateEnv();
@@ -22,7 +24,8 @@ app.use(cors({
   origin: `http://localhost:${PORT}`, 
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased limit for image uploads
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // API Documentation
 app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -31,6 +34,9 @@ app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/photo', photoRoutes);
+app.use('/api/v1/upload', photoUploadRoutes);
+app.use('/api/v1/conversations', conversationRoutes);
+app.use('/api/v1/messages', messageRoutes);
 
 // Health check route
 app.get('/', (req, res) => {

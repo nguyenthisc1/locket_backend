@@ -1,0 +1,1270 @@
+openapi: 3.0.0
+info:
+  title: Message API
+  description: API endpoints for managing messages, reactions, replies, forwarding, and threads
+  version: 1.0.0
+
+paths:
+  /api/v1/messages:
+    post:
+      summary: Send a message
+      description: Send a text, media, sticker, or emote message to a conversation
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - conversationId
+              properties:
+                conversationId:
+                  type: string
+                  format: ObjectId
+                  description: ID of the conversation to send message to
+                text:
+                  type: string
+                  maxLength: 5000
+                  description: Message text content
+                type:
+                  type: string
+                  enum: [text, image, video, sticker, file, audio, emote]
+                  default: text
+                  description: Type of message
+                attachments:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                        format: uri
+                        description: URL of the attachment
+                      type:
+                        type: string
+                        enum: [image, video, file, audio, sticker]
+                        description: Type of attachment
+                      fileName:
+                        type: string
+                        maxLength: 255
+                        description: Original file name
+                      fileSize:
+                        type: integer
+                        minimum: 0
+                        description: File size in bytes
+                      duration:
+                        type: number
+                        minimum: 0
+                        description: Duration for video/audio in seconds
+                      width:
+                        type: integer
+                        minimum: 1
+                        description: Width for images/videos
+                      height:
+                        type: integer
+                        minimum: 1
+                        description: Height for images/videos
+                      thumbnail:
+                        type: string
+                        format: uri
+                        description: Thumbnail URL for videos
+                      mimeType:
+                        type: string
+                        description: MIME type of the file
+                replyTo:
+                  type: string
+                  format: ObjectId
+                  description: ID of message to reply to
+                forwardedFrom:
+                  type: string
+                  format: ObjectId
+                  description: ID of user who originally sent the message
+                forwardInfo:
+                  type: object
+                  properties:
+                    originalMessageId:
+                      type: string
+                      format: ObjectId
+                    originalSenderName:
+                      type: string
+                    originalConversationId:
+                      type: string
+                      format: ObjectId
+                    originalConversationName:
+                      type: string
+                threadInfo:
+                  type: object
+                  properties:
+                    parentMessageId:
+                      type: string
+                      format: ObjectId
+                      description: ID of parent message for thread
+                metadata:
+                  type: object
+                  properties:
+                    clientMessageId:
+                      type: string
+                      maxLength: 100
+                      description: Client-side message ID for tracking
+                    deviceId:
+                      type: string
+                      maxLength: 100
+                      description: Device identifier
+                    platform:
+                      type: string
+                      enum: [ios, android, web]
+                      description: Platform the message was sent from
+                sticker:
+                  type: object
+                  properties:
+                    stickerId:
+                      type: string
+                      maxLength: 100
+                      description: Sticker identifier
+                    stickerPackId:
+                      type: string
+                      maxLength: 100
+                      description: Sticker pack identifier
+                    emoji:
+                      type: string
+                      maxLength: 10
+                      description: Associated emoji
+                emote:
+                  type: object
+                  properties:
+                    emoteId:
+                      type: string
+                      maxLength: 100
+                      description: Emote identifier
+                    emoteType:
+                      type: string
+                      maxLength: 50
+                      description: Type of emote
+                    emoji:
+                      type: string
+                      maxLength: 10
+                      description: Associated emoji
+            examples:
+              text_message:
+                summary: Text message
+                value:
+                  conversationId: "507f1f77bcf86cd799439011"
+                  text: "Hello everyone!"
+                  type: "text"
+                  metadata:
+                    clientMessageId: "msg_123"
+                    platform: "ios"
+              
+              media_message:
+                summary: Media message
+                value:
+                  conversationId: "507f1f77bcf86cd799439011"
+                  type: "image"
+                  attachments:
+                    - url: "https://example.com/image.jpg"
+                      type: "image"
+                      fileName: "photo.jpg"
+                      fileSize: 1024000
+                      width: 1920
+                      height: 1080
+                      mimeType: "image/jpeg"
+                  metadata:
+                    clientMessageId: "msg_124"
+                    platform: "android"
+              
+              reply_message:
+                summary: Reply message
+                value:
+                  conversationId: "507f1f77bcf86cd799439011"
+                  text: "I agree with you!"
+                  replyTo: "507f1f77bcf86cd799439012"
+                  metadata:
+                    clientMessageId: "msg_125"
+                    platform: "web"
+              
+              sticker_message:
+                summary: Sticker message
+                value:
+                  conversationId: "507f1f77bcf86cd799439011"
+                  type: "sticker"
+                  sticker:
+                    stickerId: "sticker_123"
+                    stickerPackId: "pack_456"
+                    emoji: "😄"
+                  metadata:
+                    clientMessageId: "msg_126"
+                    platform: "ios"
+      responses:
+        '201':
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Message sent successfully"
+                  data:
+                    $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/messages/conversation/{conversationId}:
+    get:
+      summary: Get conversation messages
+      description: Retrieve messages from a specific conversation
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ObjectId
+          description: Conversation ID
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Number of messages per page
+      responses:
+        '200':
+          description: Messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Messages retrieved successfully"
+                  data:
+                    $ref: '#/components/schemas/MessageListResponse'
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/messages/{messageId}:
+    get:
+      summary: Get message by ID
+      description: Retrieve a specific message with full details
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ObjectId
+          description: Message ID
+      responses:
+        '200':
+          description: Message retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Message retrieved successfully"
+                  data:
+                    $ref: '#/components/schemas/MessageResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Edit message
+      description: Edit a message (only within 15 minutes of sending)
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ObjectId
+          description: Message ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 5000
+                  description: New message text
+            example:
+              text: "Updated message content"
+      responses:
+        '200':
+          description: Message edited successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Message edited successfully"
+                  data:
+                    $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error or message too old
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete message
+      description: Soft delete a message (only sender can delete)
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ObjectId
+          description: Message ID
+      responses:
+        '200':
+          description: Message deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Message deleted successfully"
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/messages/{messageId}/reactions:
+    post:
+      summary: Add reaction to message
+      description: Add an emoji reaction to a message
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ObjectId
+          description: Message ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reactionType
+              properties:
+                reactionType:
+                  type: string
+                  minLength: 1
+                  maxLength: 10
+                  description: Emoji or reaction type
+            example:
+              reactionType: "❤️"
+      responses:
+        '200':
+          description: Reaction added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Reaction added successfully"
+                  data:
+                    $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Remove reaction from message
+      description: Remove user's reaction from a message
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ObjectId
+          description: Message ID
+      responses:
+        '200':
+          description: Reaction removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Reaction removed successfully"
+                  data:
+                    $ref: '#/components/schemas/MessageResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/messages/{messageId}/reply:
+    post:
+      summary: Reply to message
+      description: Send a reply to a specific message
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ObjectId
+          description: Message ID to reply to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  maxLength: 5000
+                  description: Reply message text
+                type:
+                  type: string
+                  enum: [text, image, video, sticker, file, audio, emote]
+                  default: text
+                  description: Type of reply message
+                attachments:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                        format: uri
+                      type:
+                        type: string
+                        enum: [image, video, file, audio, sticker]
+                metadata:
+                  type: object
+                  properties:
+                    clientMessageId:
+                      type: string
+                      maxLength: 100
+                    deviceId:
+                      type: string
+                      maxLength: 100
+                    platform:
+                      type: string
+                      enum: [ios, android, web]
+            example:
+              text: "This is my reply!"
+              type: "text"
+              metadata:
+                clientMessageId: "reply_123"
+                platform: "ios"
+      responses:
+        '201':
+          description: Reply sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Reply sent successfully"
+                  data:
+                    $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Original message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/messages/{messageId}/thread:
+    get:
+      summary: Get thread messages
+      description: Retrieve all messages in a thread
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ObjectId
+          description: Parent message ID
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Number of messages per page
+      responses:
+        '200':
+          description: Thread messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Thread messages retrieved successfully"
+                  data:
+                    $ref: '#/components/schemas/MessageListResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Parent message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/messages/{messageId}/pin:
+    post:
+      summary: Pin/Unpin message
+      description: Pin or unpin a message in the conversation
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ObjectId
+          description: Message ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [pin, unpin]
+                  description: Action to perform
+            example:
+              action: "pin"
+      responses:
+        '200':
+          description: Message pinned/unpinned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Message pinned successfully"
+                  data:
+                    $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/messages/forward:
+    post:
+      summary: Forward messages
+      description: Forward one or more messages to other conversations
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetConversationIds
+                - messageIds
+              properties:
+                targetConversationIds:
+                  type: array
+                  items:
+                    type: string
+                    format: ObjectId
+                  minItems: 1
+                  description: Array of conversation IDs to forward to
+                messageIds:
+                  type: array
+                  items:
+                    type: string
+                    format: ObjectId
+                  minItems: 1
+                  description: Array of message IDs to forward
+            example:
+              targetConversationIds: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"]
+              messageIds: ["507f1f77bcf86cd799439013", "507f1f77bcf86cd799439014"]
+      responses:
+        '200':
+          description: Messages forwarded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Messages forwarded successfully"
+                  data:
+                    type: object
+                    properties:
+                      forwardedCount:
+                        type: integer
+                        example: 4
+                      targetConversations:
+                        type: integer
+                        example: 2
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/messages/search:
+    get:
+      summary: Search messages
+      description: Search messages with various filters
+      tags: [Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+          description: Text search query
+        - name: conversationId
+          in: query
+          schema:
+            type: string
+            format: ObjectId
+          description: Filter by specific conversation
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [text, image, video, sticker, file, audio, emote]
+          description: Filter by message type
+        - name: senderId
+          in: query
+          schema:
+            type: string
+            format: ObjectId
+          description: Filter by sender
+        - name: hasAttachments
+          in: query
+          schema:
+            type: boolean
+          description: Filter messages with attachments
+        - name: hasReactions
+          in: query
+          schema:
+            type: boolean
+          description: Filter messages with reactions
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter from date
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter to date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+          description: Number of messages per page
+      responses:
+        '200':
+          description: Messages found successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Messages found successfully"
+                  data:
+                    $ref: '#/components/schemas/MessageListResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: ObjectId
+          example: "507f1f77bcf86cd799439011"
+        conversationId:
+          type: string
+          format: ObjectId
+          example: "507f1f77bcf86cd799439012"
+        senderId:
+          $ref: '#/components/schemas/User'
+        text:
+          type: string
+          example: "Hello everyone!"
+        type:
+          type: string
+          enum: [text, image, video, sticker, file, audio, emote]
+          example: "text"
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+        replyTo:
+          type: string
+          format: ObjectId
+          description: ID of replied message
+        replyInfo:
+          type: object
+          properties:
+            messageId:
+              type: string
+              format: ObjectId
+            text:
+              type: string
+              example: "Original message"
+            senderName:
+              type: string
+              example: "John Doe"
+            attachmentType:
+              type: string
+              example: "image"
+        forwardedFrom:
+          type: string
+          format: ObjectId
+          description: ID of original sender
+        forwardInfo:
+          type: object
+          properties:
+            originalMessageId:
+              type: string
+              format: ObjectId
+            originalSenderId:
+              type: string
+              format: ObjectId
+            originalSenderName:
+              type: string
+              example: "John Doe"
+            originalConversationId:
+              type: string
+              format: ObjectId
+            originalConversationName:
+              type: string
+              example: "Group Chat"
+            forwardedAt:
+              type: string
+              format: date-time
+        threadInfo:
+          type: object
+          properties:
+            parentMessageId:
+              type: string
+              format: ObjectId
+            replyCount:
+              type: integer
+              example: 5
+            lastReplyAt:
+              type: string
+              format: date-time
+            participants:
+              type: array
+              items:
+                type: string
+                format: ObjectId
+        reactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reaction'
+        isRead:
+          type: boolean
+          example: false
+        isEdited:
+          type: boolean
+          example: false
+        isDeleted:
+          type: boolean
+          example: false
+        isPinned:
+          type: boolean
+          example: false
+        editHistory:
+          type: array
+          items:
+            type: object
+            properties:
+              text:
+                type: string
+              editedAt:
+                type: string
+                format: date-time
+        metadata:
+          type: object
+          properties:
+            clientMessageId:
+              type: string
+              example: "msg_123"
+            deviceId:
+              type: string
+              example: "device_456"
+            platform:
+              type: string
+              enum: [ios, android, web]
+              example: "ios"
+        sticker:
+          type: object
+          properties:
+            stickerId:
+              type: string
+              example: "sticker_123"
+            stickerPackId:
+              type: string
+              example: "pack_456"
+            emoji:
+              type: string
+              example: "😄"
+        emote:
+          type: object
+          properties:
+            emoteId:
+              type: string
+              example: "emote_123"
+            emoteType:
+              type: string
+              example: "custom"
+            emoji:
+              type: string
+              example: "🎉"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Attachment:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          example: "https://example.com/file.jpg"
+        type:
+          type: string
+          enum: [image, video, file, audio, sticker]
+          example: "image"
+        fileName:
+          type: string
+          example: "photo.jpg"
+        fileSize:
+          type: integer
+          example: 1024000
+        duration:
+          type: number
+          example: 30.5
+        thumbnail:
+          type: string
+          format: uri
+          example: "https://example.com/thumb.jpg"
+        mimeType:
+          type: string
+          example: "image/jpeg"
+        width:
+          type: integer
+          example: 1920
+        height:
+          type: integer
+          example: 1080
+
+    Reaction:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: ObjectId
+          example: "507f1f77bcf86cd799439011"
+        type:
+          type: string
+          example: "❤️"
+        createdAt:
+          type: string
+          format: date-time
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          $ref: '#/components/schemas/Message'
+        sender:
+          $ref: '#/components/schemas/User'
+        replyMessage:
+          $ref: '#/components/schemas/Message'
+        forwardedFrom:
+          $ref: '#/components/schemas/User'
+
+    MessageListResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: ObjectId
+          example: "507f1f77bcf86cd799439011"
+        username:
+          type: string
+          example: "john_doe"
+        avatarUrl:
+          type: string
+          format: uri
+          example: "https://example.com/avatar.jpg"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 100
+        pages:
+          type: integer
+          example: 5
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Error message"
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: "email"
+              message:
+                type: string
+                example: "Invalid email format"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT 

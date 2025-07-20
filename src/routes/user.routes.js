@@ -13,9 +13,9 @@ const router = express.Router();
 // All user routes require authentication
 router.use(authMiddleware);
 
-router.get('/profile', getProfile);
-router.put('/profile', updateProfileValidation, updateProfile);
-router.delete('/account', deleteAccount);
+router.get('/', getProfile);
+router.put('/', updateProfileValidation, updateProfile);
+router.delete('/:userId', deleteAccount);
 router.get('/search', searchUsers);
 
 export default router;
