@@ -30,7 +30,8 @@ export class UserController {
 
 			const updateData = new UpdateProfileDTO(req.body);
 			const updateFields = updateData.toUpdateData();
-
+			console.log(req.user._id);
+			
 			// Check if email or phone number already exists (excluding current user)
 			if (updateFields.email) {
 				const existingUser = await User.findOne({

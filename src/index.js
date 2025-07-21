@@ -33,15 +33,15 @@ app.use(`/${API_VERSION}/docs`, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
 app.use(`/${API_VERSION}/auth`, authRoutes);
-app.use(`/${API_VERSION}/users`, userRoutes);
+app.use(`/${API_VERSION}/user`, userRoutes);
 app.use(`/${API_VERSION}/photo`, photoRoutes);
 app.use(`/${API_VERSION}/upload`, photoUploadRoutes);
-app.use(`/${API_VERSION}/conversations`, conversationRoutes);
-app.use(`/${API_VERSION}/messages`, messageRoutes);
+app.use(`/${API_VERSION}/conversation`, conversationRoutes);
+app.use(`/${API_VERSION}/message`, messageRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
-  res.send('Locket Backend API is running!');
+  res.send('Locket Backend API is running!'); D
 });
 
 // Centralized error handler
