@@ -1,24 +1,22 @@
 import express from 'express';
+import {PhotoUploadController} from '../controllers/photoUpload.controller.js';
 import authMiddleware from '../middleware/auth.middleware.js';
-import { 
-  uploadPhoto, 
-  uploadMultiplePhotos, 
-  deletePhotoWithCloudinary,
-  getImageUrls
-} from '../controllers/photoUpload.controller.js';
-import { uploadSingleImage, handleUploadError } from '../middleware/upload.middleware.js';
+import { handleUploadError, uploadSingleImage } from '../middleware/upload.middleware.js';
 
 const router = express.Router();
 
-// All upload routes require authentication
 router.use(authMiddleware);
 
-router.post('/', uploadSingleImage, handleUploadError, uploadPhoto);
+// Upload photo on cloudinary
+router.post('/', uploadSingleImage, handleUploadError, PhotoUploadController.uploadPhoto);
 
-router.post('/upload-multiple', uploadMultiplePhotos);
+// Upload photos on cloudinary
+router.post('/upload-multiple', PhotoUploadController.uploadMultiplePhotos);
 
-router.delete('/:photoId', deletePhotoWithCloudinary);
+// Delete photo
+router.delete('/:photoId', PhotoUploadController.deletePhotoWithCloudinary);
 
-router.get('/:photoId/urls', getImageUrls);
+// Get all url photo
+router.get('/:photoId/urls', PhotoUploadController.getImageUrls);
 
 export default router; 

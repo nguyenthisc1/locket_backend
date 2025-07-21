@@ -1,21 +1,19 @@
 import express from 'express';
 import { MessageController } from '../controllers/message.controller.js';
-import authMiddleware from '../middleware/auth.middleware.js';
 import {
-  CreateMessageDTO,
-  UpdateMessageDTO,
   AddReactionDTO,
-  RemoveReactionDTO,
+  CreateMessageDTO,
   ForwardMessageDTO,
+  PinMessageDTO,
   ReplyMessageDTO,
   SearchMessagesDTO,
   ThreadMessagesDTO,
-  PinMessageDTO
+  UpdateMessageDTO
 } from '../dtos/message.dto.js';
+import authMiddleware from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-// Apply authentication middleware to all routes
 router.use(authMiddleware);
 
 // Send a message

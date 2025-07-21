@@ -1,34 +1,29 @@
-import express from 'express';
-import authMiddleware from '../middleware/auth.middleware.js';
-import { 
-  getPhotos, 
-  getPhotoById, 
-  createPhoto, 
-  updatePhoto, 
-  deletePhoto,
-  addReaction,
-  removeReaction
-} from '../controllers/photo.controller.js';
-import { 
-  CreatePhotoDTO, 
-  UpdatePhotoDTO, 
-  AddReactionDTO 
-} from '../dtos/index.js';
+import express from "express";
+import { PhotoController } from "../controllers/photo.controller.js";
+import { AddReactionDTO, CreatePhotoDTO, UpdatePhotoDTO } from "../dtos/index.js";
+import authMiddleware from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-// All photo routes require authentication
 router.use(authMiddleware);
 
-// Photo CRUD operations
-router.get('/', getPhotos);
-router.get('/:photoId', getPhotoById);
-router.post('/', CreatePhotoDTO.validationRules(), createPhoto);
-router.put('/:photoId', UpdatePhotoDTO.validationRules(), updatePhoto);
-router.delete('/:photoId', deletePhoto);
+// Get all photos
+router.get("/", PhotoController.getPhotos);
+
+// Get photo
+router.get("/:photoId", PhotoController.getPhotoById);
+
+// Create photo
+router.post("/", CreatePhotoDTO.validationRules(), PhotoController.createPhoto);
+
+// Update photo
+router.put("/:photoId", UpdatePhotoDTO.validationRules(), PhotoController.updatePhoto);
+
+// Delete photo
+router.delete("/:photoId", PhotoController.deletePhoto);
 
 // Photo reactions
-router.post('/:photoId/reactions', AddReactionDTO.validationRules(), addReaction);
-router.delete('/:photoId/reactions', removeReaction);
+router.post("/:photoId/reactions", AddReactionDTO.validationRules(), PhotoController.addReaction);
+router.delete("/:photoId/reactions", PhotoController.removeReaction);
 
 export default router;

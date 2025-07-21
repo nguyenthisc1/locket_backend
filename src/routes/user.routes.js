@@ -1,21 +1,16 @@
-import express from 'express';
-import { 
-  getProfile, 
-  updateProfile, 
-  deleteAccount, 
-  updateProfileValidation,
-  searchUsers
-} from '../controllers/user.controller.js';
-import authMiddleware from '../middleware/auth.middleware.js';
+import express from "express";
+import { UserController } from "../controllers/user.controller.js";
+import {UpdateProfileDTO} from '../dtos/user.dto.js'
+import authMiddleware from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
 // All user routes require authentication
 router.use(authMiddleware);
 
-router.get('/', getProfile);
-router.put('/', updateProfileValidation, updateProfile);
-router.delete('/:userId', deleteAccount);
-router.get('/search', searchUsers);
+router.get("/", UserController.getProfile);
+router.put("/", UpdateProfileDTO.validationRules(), UserController.updateProfile);
+router.delete("/:userId", UserController.deleteAccount);
+router.get("/search", UserController.searchUsers);
 
 export default router;
