@@ -1,21 +1,18 @@
-import Message from '../models/message.model.js';
-import Conversation from '../models/conversation.model.js';
-import User from '../models/user.model.js';
+import { validationResult } from 'express-validator';
 import {
-  MessageDTO,
-  CreateMessageDTO,
-  UpdateMessageDTO,
   AddReactionDTO,
-  RemoveReactionDTO,
+  CreateMessageDTO,
   ForwardMessageDTO,
-  ReplyMessageDTO,
-  MessageResponseDTO,
   MessageListResponseDTO,
+  MessageResponseDTO,
+  PinMessageDTO,
+  ReplyMessageDTO,
   SearchMessagesDTO,
   ThreadMessagesDTO,
-  PinMessageDTO
+  UpdateMessageDTO
 } from '../dtos/message.dto.js';
-import { validationResult } from 'express-validator';
+import Conversation from '../models/conversation.model.js';
+import Message from '../models/message.model.js';
 
 export class MessageController {
   // Send a message
