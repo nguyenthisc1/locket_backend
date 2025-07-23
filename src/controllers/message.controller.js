@@ -891,7 +891,7 @@ export class MessageController {
       }
 
       // Check permissions for pinning
-      if (conversation.isGroup && conversation.admin.toString() !== userId) {
+      if (conversation.isGroup && !conversation.admin.equals(userId)) {
         if (!conversation.groupSettings.allowMemberPin) {
           return res.status(403).json({
             success: false,
