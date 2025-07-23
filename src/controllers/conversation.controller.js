@@ -252,7 +252,7 @@ export class ConversationController {
 			}
 
 			// Check permissions for group settings
-			if (conversation.isGroup && conversation.admin.toString() !== userId) {
+			if (conversation.isGroup && !conversation.admin.equals(userId)) {
 				if (updateDTO.groupSettings) {
 					return res.status(403).json({
 						success: false,
@@ -315,7 +315,7 @@ export class ConversationController {
 			}
 
 			// Check if user can add participants
-			if (conversation.isGroup && conversation.admin.toString() !== userId) {
+			if (conversation.isGroup && !conversation.admin.equals(userId)) {
 				if (!conversation.groupSettings.allowMemberInvite) {
 					return res.status(403).json({
 						success: false,
@@ -397,7 +397,7 @@ export class ConversationController {
 			}
 
 			// Cannot remove admin from group
-			if (conversation.isGroup && conversation.admin.toString() === removeDTO.userId) {
+			if (conversation.isGroup && conversation.admin.equals(removeDTO.userId)) {
 				return res.status(400).json({
 					success: false,
 					message: "Cannot remove admin from group",
@@ -579,7 +579,7 @@ export class ConversationController {
 			}
 
 			// If admin leaves group, transfer admin to another participant
-			if (conversation.isGroup && conversation.admin.toString() === userId) {
+			if (conversation.isGroup && conversation.admin.equals(userId)) {
 				const newAdmin = conversation.participants.find((p) => p.toString() !== userId);
 				if (newAdmin) {
 					conversation.admin = newAdmin;
@@ -622,7 +622,7 @@ export class ConversationController {
 			}
 
 			// Only admin can delete group conversations
-			if (conversation.isGroup && conversation.admin.toString() !== userId) {
+			if (conversation.isGroup && !conversation.admin.equals(userId)) {
 				return res.status(403).json({
 					success: false,
 					message: "Only admin can delete group conversation",
