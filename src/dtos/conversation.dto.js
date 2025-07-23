@@ -51,57 +51,83 @@ export class ConversationDTO {
 export class CreateConversationDTO {
   constructor(data) {
     this.name = data.name;
-    this.participants = data.participants || [];
+    this.participants = data.participants;
     this.isGroup = data.isGroup || false;
     this.admin = data.admin;
     this.groupSettings = data.groupSettings;
     this.settings = data.settings;
   }
 
+  /**
+   * Validation rules for creating a conversation.
+   * - Private conversations must have exactly 2 participants.
+   * - Group conversations must have at least 3 participants.
+   * - All participants must be valid Mongo IDs.
+   * - isGroup must be a boolean if provided.
+   * - Admin must be a valid Mongo ID if provided.
+   * - Group settings fields must be booleans if provided.
+   */
   static validationRules() {
     return [
       body('name')
         .optional()
         .isLength({ max: 100 })
         .withMessage('Conversation name must be less than 100 characters'),
-      
-      body('participants')
-        .isArray({ min: 1 })
-        .withMessage('At least one participant is required'),
-      
-      body('participants.*')
-        .isMongoId()
-        .withMessage('Invalid user ID in participants array'),
-      
-      body('isGroup')
+        
+        body('isGroup')
         .optional()
         .isBoolean()
         .withMessage('isGroup must be a boolean'),
-      
-      body('admin')
+        
+        body('admin')
         .optional()
         .isMongoId()
         .withMessage('Invalid admin user ID'),
-      
-      body('groupSettings.allowMemberInvite')
+        
+        body('groupSettings.allowMemberInvite')
         .optional()
         .isBoolean()
         .withMessage('allowMemberInvite must be a boolean'),
-      
-      body('groupSettings.allowMemberEdit')
+        
+        body('groupSettings.allowMemberEdit')
         .optional()
         .isBoolean()
         .withMessage('allowMemberEdit must be a boolean'),
-      
-      body('groupSettings.allowMemberDelete')
-        .optional()
-        .isBoolean()
-        .withMessage('allowMemberDelete must be a boolean'),
-      
-      body('groupSettings.allowMemberPin')
-        .optional()
-        .isBoolean()
-        .withMessage('allowMemberPin must be a boolean')
+        
+        body('participants')
+          .isArray()
+          .withMessage('Participants must be an array')
+          .custom((arr, { req }) => {
+            if (!Array.isArray(arr)) {
+              throw new Error('Participants must be an array');
+            }
+            // Validate each participant is a non-empty string
+            if (!arr.every(id => typeof id === 'string' && id.trim().length > 0)) {
+              throw new Error('Each participant must be a non-empty Mongo ID');
+            }
+            const isGroup = req.body.isGroup === true || req.body.isGroup === 'true';
+            if (isGroup && arr.length < 2) {
+              // In the controller, the current user is added, so require at least 2 others for group
+            }
+            if (!isGroup && arr.length !== 1) {
+              throw new Error('Private conversation must have exactly 2 participants (including the creator)');
+            }
+            return true;
+          }),
+  
+        body('participants.*')
+          .isMongoId()
+          .withMessage('Invalid user ID in participants array'),
+
+        body('groupSettings.allowMemberDelete')
+          .optional()
+          .isBoolean()
+          .withMessage('allowMemberDelete must be a boolean'),
+
+        body('groupSettings.allowMemberPin')
+          .optional()
+          .isBoolean()
+          .withMessage('allowMemberPin must be a boolean')
     ];
   }
 }

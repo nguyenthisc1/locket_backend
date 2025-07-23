@@ -28,7 +28,7 @@ export class MessageController {
       }
 
       const createDTO = new CreateMessageDTO(req.body);
-      const { userId } = req.user;
+      const userId = req.user._id;
 
       // Verify conversation exists and user is participant
       const conversation = await Conversation.findOne({
@@ -158,7 +158,7 @@ export class MessageController {
   static async getConversationMessages(req, res) {
     try {
       const { conversationId } = req.params;
-      const { userId } = req.user;
+      const userId = req.user._id;
       const { page = 1, limit = 50 } = req.query;
       const skip = (page - 1) * limit;
 
@@ -211,7 +211,7 @@ export class MessageController {
   static async getMessage(req, res) {
     try {
       const { messageId } = req.params;
-      const { userId } = req.user;
+      const userId = req.user._id;
 
       const message = await Message.findOne({
         _id: messageId,
@@ -274,7 +274,7 @@ export class MessageController {
       }
 
       const { messageId } = req.params;
-      const { userId } = req.user;
+      const userId = req.user._id;
       const updateDTO = new UpdateMessageDTO(req.body);
 
       const message = await Message.findOne({
@@ -324,7 +324,7 @@ export class MessageController {
   static async deleteMessage(req, res) {
     try {
       const { messageId } = req.params;
-      const { userId } = req.user;
+      const userId = req.user._id;
 
       const message = await Message.findOne({
         _id: messageId,
@@ -368,7 +368,7 @@ export class MessageController {
       }
 
       const { messageId } = req.params;
-      const { userId } = req.user;
+      const userId = req.user._id;
       const addDTO = new AddReactionDTO(req.body);
 
       const message = await Message.findOne({
@@ -422,7 +422,7 @@ export class MessageController {
   static async removeReaction(req, res) {
     try {
       const { messageId } = req.params;
-      const { userId } = req.user;
+      const userId = req.user._id;
 
       const message = await Message.findOne({
         _id: messageId,
@@ -483,7 +483,7 @@ export class MessageController {
         });
       }
 
-      const { userId } = req.user;
+      const userId = req.user._id;
       const forwardDTO = new ForwardMessageDTO(req.body);
 
       // Verify target conversations exist and user has access
@@ -581,7 +581,7 @@ export class MessageController {
       }
 
       const { messageId } = req.params;
-      const { userId } = req.user;
+      const userId = req.user._id;
       const replyDTO = new ReplyMessageDTO(req.body);
 
       const originalMessage = await Message.findOne({
@@ -670,7 +670,7 @@ export class MessageController {
         });
       }
 
-      const { userId } = req.user;
+      const userId = req.user._id;
       const threadDTO = new ThreadMessagesDTO(req.params);
       const skip = (threadDTO.page - 1) * threadDTO.limit;
 
@@ -743,7 +743,7 @@ export class MessageController {
         });
       }
 
-      const { userId } = req.user;
+      const userId = req.user._id;
       const searchDTO = new SearchMessagesDTO(req.query);
       const skip = (searchDTO.page - 1) * searchDTO.limit;
 
@@ -861,7 +861,7 @@ export class MessageController {
       }
 
       const { messageId } = req.params;
-      const { userId } = req.user;
+      const userId = req.user._id;
       const pinDTO = new PinMessageDTO(req.body);
 
       const message = await Message.findOne({
