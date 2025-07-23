@@ -368,11 +368,11 @@ export class ConversationController {
 					errors: errors.array(),
 				});
 			}
-
+			
 			const { conversationId } = req.params;
 			const userId = req.user._id;
 			const removeDTO = new RemoveParticipantDTO(req.body);
-
+			
 			const conversation = await Conversation.findOne({
 				_id: conversationId,
 				participants: userId,
@@ -387,7 +387,7 @@ export class ConversationController {
 			}
 
 			// Check permissions
-			if (conversation.isGroup && conversation.admin.toString() !== userId) {
+			if (conversation.isGroup && !conversation.admin.equals(userId)) {
 				if (!conversation.groupSettings.allowMemberEdit) {
 					return res.status(403).json({
 						success: false,

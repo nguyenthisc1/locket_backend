@@ -13,6 +13,9 @@ router.get("/", PhotoController.getPhotos);
 // Get photo
 router.get("/:photoId", PhotoController.getPhotoById);
 
+// Get user photos
+router.get("/:userId", PhotoController.getUserPhotos)
+
 // Create photo
 router.post("/", CreatePhotoDTO.validationRules(), PhotoController.createPhoto);
 
@@ -21,7 +24,6 @@ router.put("/:photoId", UpdatePhotoDTO.validationRules(), PhotoController.update
 
 // Delete photo
 router.delete("/:photoId", PhotoController.deletePhoto);
-
 // Photo reactions
 router.post("/:photoId/reactions", AddReactionDTO.validationRules(), PhotoController.addReaction);
 router.delete("/:photoId/reactions", PhotoController.removeReaction);
