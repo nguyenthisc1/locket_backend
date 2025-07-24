@@ -1,21 +1,5 @@
 import mongoose from 'mongoose';
-
-// Reaction schema for message reactions
-const reactionSchema = new mongoose.Schema({
-	userId: { 
-		type: mongoose.Schema.Types.ObjectId, 
-		ref: 'User',
-		required: true 
-	},
-	type: { 
-		type: String, 
-		required: true 
-	}, // emoji or emote type (❤️, 😂, 😮, etc.)
-	createdAt: { 
-		type: Date, 
-		default: Date.now 
-	}
-});
+import reactionSchema from "./reaction.model.js";
 
 // Attachment schema for media files
 const attachmentSchema = new mongoose.Schema({

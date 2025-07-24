@@ -125,12 +125,12 @@ export class UpdatePhotoDTO {
 // Add Reaction DTO
 export class AddReactionDTO {
   constructor(data) {
-    this.type = data.type;
+    this.reactionType = data.reactionType;
   }
 
   static validationRules() {
     return [
-      body('type')
+      body('reactionType')
         .notEmpty()
         .withMessage('Reaction type is required')
         .isLength({ min: 1, max: 10 })
