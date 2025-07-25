@@ -222,6 +222,7 @@ export class MessageController {
       .populate('replyInfo.messageId')
       .populate('forwardedFrom', 'username avatarUrl')
       .populate('forwardInfo.originalSenderId', 'username avatarUrl');
+      console.log("🚀 ~ MessageController ~ getMessage ~ message:", message)
 
       if (!message) {
         return res.status(404).json({
@@ -733,6 +734,7 @@ export class MessageController {
 
   // Search messages
   static async searchMessages(req, res) {
+    console.log("🚀 ~ MessageController ~ searchMessages ~ req:", req.query)
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -744,7 +746,7 @@ export class MessageController {
       }
 
       const userId = req.user._id;
-      const searchDTO = new SearchMessagesDTO(req.query);
+      const searchDTO = new SearchMessagesDTO(req.body.query);
       const skip = (searchDTO.page - 1) * searchDTO.limit;
 
       // Build search query
@@ -851,6 +853,7 @@ export class MessageController {
   // Pin/Unpin message
   static async pinMessage(req, res) {
     try {
+      
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         return res.status(400).json({

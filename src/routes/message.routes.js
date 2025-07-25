@@ -26,6 +26,14 @@ router.post(
 // Get conversation messages
 router.get('/conversation/:conversationId', MessageController.getConversationMessages);
 
+// Search messages
+router.get(
+  '/search',
+  SearchMessagesDTO.validationRules(),
+  MessageController.searchMessages
+);
+
+
 // Get message by ID
 router.get('/:messageId', MessageController.getMessage);
 
@@ -75,13 +83,6 @@ router.post(
   '/forward',
   ForwardMessageDTO.validationRules(),
   MessageController.forwardMessages
-);
-
-// Search messages
-router.get(
-  '/search',
-  SearchMessagesDTO.validationRules(),
-  MessageController.searchMessages
 );
 
 export default router; 

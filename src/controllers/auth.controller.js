@@ -120,7 +120,7 @@ export class AuthController {
 	}
 
 	// Logout controller
-	static async logout() {
+	static async logout(req, res) {
 		try {
 			res.clearCookie("refreshToken", {
 				httpOnly: true,

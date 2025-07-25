@@ -1,39 +1,45 @@
 {
-  "name": "locket_backend",
-  "version": "1.0.0",
-  "description": "Backend API for Locket app, built with Express.js and MongoDB.",
-  "main": "src/index.js",
-  "type": "module",
-  "scripts": {
-    "dev": "nodemon src/index.js",
-    "start": "node src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "echo \"No linter configured\""
-  },
-  "keywords": [
-    "express",
-    "backend",
-    "api",
-    "locket"
-  ],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "bcryptjs": "^3.0.2",
-    "cloudinary": "^2.7.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.5.0",
-    "express": "^5.1.0",
-    "express-validator": "^7.2.1",
-    "js-yaml": "^4.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.16.0",
-    "multer": "^2.0.1",
-    "streamifier": "^0.1.1"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.10",
-    "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
-  }
+	"name": "locket_backend",
+	"version": "1.0.0",
+	"description": "Backend API for Locket app, built with Express.js and MongoDB.",
+	"main": "src/index.js",
+	"type": "module",
+	"scripts": {
+		"dev": "nodemon src/index.js",
+		"start": "node src/index.js",
+		"test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+		"test:watch": "jest --watchAll",
+		"lint": "echo \"No linter configured\""
+	},
+	"keywords": [
+		"express",
+		"backend",
+		"api",
+		"locket"
+	],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"bcryptjs": "^3.0.2",
+		"cloudinary": "^2.7.0",
+		"cors": "^2.8.5",
+		"dotenv": "^16.5.0",
+		"express": "^5.1.0",
+		"express-validator": "^7.2.1",
+		"js-yaml": "^4.1.0",
+		"jsonwebtoken": "^9.0.2",
+		"mongoose": "^8.16.0",
+		"multer": "^2.0.1",
+		"streamifier": "^0.1.1"
+	},
+	"devDependencies": {
+		"cookie-parser": "^1.4.7",
+		"jest": "^30.0.5",
+		"jest-config": "^30.0.5",
+		"mongodb-memory-server": "^10.1.4",
+		"nodemon": "^3.1.10",
+		"supertest": "^7.1.4",
+		"swagger-jsdoc": "^6.2.8",
+		"swagger-ui-express": "^5.0.1"
+	}
 }

@@ -97,6 +97,22 @@ Swagger UI is available at:
 - Error handling is centralized for maintainability.
 - Swagger documentation is auto-generated from route JSDoc comments.
 
+## Testing
+
+This project uses [Jest](https://jestjs.io/) for unit and integration testing.
+
+### Running Tests
+
+To run all tests:
+```bash
+pnpm test
+```
+
+- Place your test files next to the code they test, using the `.test.js` or `.spec.js` suffix, or in a `__tests__` directory.
+- Example test file: `src/controllers/auth.controller.test.js`
+
+Jest will automatically find and run all test files matching these patterns.
+
 ## Scripts
 
 | Command         | Description                |

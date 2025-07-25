@@ -204,7 +204,7 @@ export class PhotoController {
 
 			const { photoId } = req.params;
 			const reactionData = new AddReactionDTO(req.body);
-			const { type } = reactionData;
+			const { reactionType: type } = reactionData;
 
 			const photo = await Photo.findById(photoId);
 			if (!photo) {
