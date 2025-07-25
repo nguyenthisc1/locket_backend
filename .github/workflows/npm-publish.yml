@@ -29,10 +29,16 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install pnpm
+        run: npm install -g pnpm
 
-      # - name: Run tests
-      #   run: npm test
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run tests
+        run: pnpm test
         env:
           MONGODB_URI: mongodb://localhost:27017/testdb
+          JWT_SECRET: testsecret
+          ACCESS_TOKEN_EXPIRES_IN: 1h
+          REFRESH_TOKEN_EXPIRES_IN: 7d
