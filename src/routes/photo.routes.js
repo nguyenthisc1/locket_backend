@@ -14,7 +14,7 @@ router.get("/", PhotoController.getPhotos);
 router.get("/:photoId", PhotoController.getPhotoById);
 
 // Get user photos
-router.get("/:userId", PhotoController.getUserPhotos)
+router.get("/user/:userId", PhotoController.getUserPhotos)
 
 // Create photo
 router.post("/", CreatePhotoDTO.validationRules(), PhotoController.createPhoto);

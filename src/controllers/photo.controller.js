@@ -2,6 +2,7 @@ import Photo from "../models/photo.model.js";
 import User from "../models/user.model.js";
 import { validationResult } from "express-validator";
 import { CreatePhotoDTO, UpdatePhotoDTO, AddReactionDTO, PhotoResponseDTO, PhotoListResponseDTO, SearchPhotosDTO } from "../dtos/index.js";
+import mongoose from "mongoose";
 
 export class PhotoController {
 	// Get all photos (with pagination and filtering)
@@ -290,7 +291,7 @@ export class PhotoController {
 
 			// If viewing own photos, show all
 			// If viewing someone else's photos, only show shared ones
-			if (!userId.equals(req.user._id)) {
+			if (userId !== req.user._id.toString()) {
 				searchQuery.sharedWith = req.user._id;
 			}
 
