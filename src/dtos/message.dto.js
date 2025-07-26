@@ -1,4 +1,4 @@
-import { body } from 'express-validator';
+import { body, param } from 'express-validator';
 
 // Base Message DTO
 export class MessageDTO {
@@ -441,14 +441,14 @@ export class SearchMessagesDTO {
 // Thread Messages DTO
 export class ThreadMessagesDTO {
   constructor(data) {
-    this.parentMessageId = data.parentMessageId;
+    this.parentMessageId = data.messageId || data.parentMessageId; // Handle both messageId from route and parentMessageId
     this.limit = parseInt(data.limit) || 50;
     this.page = parseInt(data.page) || 1;
   }
 
   static validationRules() {
     return [
-      body('parentMessageId')
+      param('messageId')
         .isMongoId()
         .withMessage('Invalid parent message ID'),
       

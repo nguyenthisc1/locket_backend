@@ -278,11 +278,22 @@ export class MessageController {
       const userId = req.user._id;
       const updateDTO = new UpdateMessageDTO(req.body);
 
-      const message = await Message.findOne({
-        _id: messageId,
-        senderId: userId,
-        isDeleted: false
-      });
+      let message;
+      try {
+        message = await Message.findOne({
+          _id: messageId,
+          senderId: userId,
+          isDeleted: false
+        });
+      } catch (err) {
+        if (err.name === 'CastError') {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid message ID'
+          });
+        }
+        throw err;
+      }
 
       if (!message) {
         return res.status(404).json({
@@ -372,10 +383,21 @@ export class MessageController {
       const userId = req.user._id;
       const addDTO = new AddReactionDTO(req.body);
 
-      const message = await Message.findOne({
-        _id: messageId,
-        isDeleted: false
-      });
+      let message;
+      try {
+        message = await Message.findOne({
+          _id: messageId,
+          isDeleted: false
+        });
+      } catch (err) {
+        if (err.name === 'CastError') {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid message ID'
+          });
+        }
+        throw err;
+      }
 
       if (!message) {
         return res.status(404).json({
@@ -626,6 +648,9 @@ export class MessageController {
         attachments: replyDTO.attachments,
         replyTo: originalMessage._id,
         replyInfo,
+        threadInfo: {
+          parentMessageId: originalMessage._id
+        },
         metadata: {
           ...replyDTO.metadata,
           clientMessageId: `reply_${Date.now()}_${Math.random()}`,
@@ -746,7 +771,7 @@ export class MessageController {
       }
 
       const userId = req.user._id;
-      const searchDTO = new SearchMessagesDTO(req.body.query);
+      const searchDTO = new SearchMessagesDTO(req.query); // Changed from req.body.query to req.query
       const skip = (searchDTO.page - 1) * searchDTO.limit;
 
       // Build search query
