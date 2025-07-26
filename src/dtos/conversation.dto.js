@@ -110,7 +110,7 @@ export class CreateConversationDTO {
               // In the controller, the current user is added, so require at least 2 others for group
             }
             if (!isGroup && arr.length !== 1) {
-              throw new Error('Private conversation must have exactly 2 participants (including the creator)');
+              throw new Error('Private conversation must have exactly 1 participant (the current user will be added automatically)');
             }
             return true;
           }),

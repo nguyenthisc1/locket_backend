@@ -12,7 +12,7 @@ router.use(authMiddleware);
 router.post("/", CreateConversationDTO.validationRules(), ConversationController.createConversation);
 
 // Get user's conversations
-router.get("/", ConversationController.getUserConversations);
+router.get("/user", ConversationController.getUserConversations);
 
 // Search conversations
 router.get("/search", SearchConversationsDTO.validationRules(), ConversationController.searchConversations);

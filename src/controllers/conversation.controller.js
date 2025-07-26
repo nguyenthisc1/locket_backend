@@ -10,6 +10,7 @@ import {
 } from "../dtos/conversation.dto.js";
 import Conversation from "../models/conversation.model.js";
 import User from "../models/user.model.js";
+import mongoose from "mongoose";
 
 export class ConversationController {
 	// Create a new conversation
@@ -188,14 +189,16 @@ export class ConversationController {
 			const { conversationId } = req.params;
 			const userId = req.user._id;
 
+			// Convert string ID to ObjectId
+			const objectId = new mongoose.Types.ObjectId(conversationId);
+
 			const conversation = await Conversation.findOne({
-				_id: conversationId,
+				_id: objectId,
 				participants: userId,
 				isActive: true,
 			})
 				.populate("participants", "username avatarUrl email")
 				.populate("admin", "username avatarUrl")
-				.populate("pinnedMessages")
 				.populate("readReceipts.userId", "username avatarUrl");
 
 			if (!conversation) {
