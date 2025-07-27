@@ -41,7 +41,17 @@ app.use(`/${API_VERSION}/message`, messageRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
-  res.send('Locket Backend API is running!'); D
+  res.send('Locket Backend API is running!');
+});
+
+// Health check endpoint for Render
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    message: 'Locket Backend API is healthy',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
 });
 
 // Centralized error handler
