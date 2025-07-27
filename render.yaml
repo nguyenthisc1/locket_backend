@@ -32,10 +32,3 @@ services:
         value: *
     autoDeploy: true
     branch: main
-
-databases:
-  - name: locket-mongodb
-    databaseName: locket
-    user: locket_user
-    plan: starter
-    region: oregon
