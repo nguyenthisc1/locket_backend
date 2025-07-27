@@ -1,32 +1,34 @@
-import cors from 'cors';
-import dotenv from 'dotenv';
-import express from 'express';
-import swaggerUi from 'swagger-ui-express';
-import connectDB from './config/db.js';
-import swaggerSpec from './docs/swagger.js';
-import validateEnv from './utils/validateEnv.js';
+import cors from "cors";
+import dotenv from "dotenv";
+import express from "express";
+import swaggerUi from "swagger-ui-express";
+import connectDB from "./config/db.js";
+import swaggerSpec from "./docs/swagger.js";
+import validateEnv from "./utils/validateEnv.js";
 
-import authRoutes from './routes/auth.routes.js';
-import photoRoutes from './routes/photo.routes.js';
-import photoUploadRoutes from './routes/photoUpload.routes.js';
-import userRoutes from './routes/user.routes.js';
-import conversationRoutes from './routes/conversation.routes.js';
-import messageRoutes from './routes/message.routes.js';
+import authRoutes from "./routes/auth.routes.js";
+import photoRoutes from "./routes/photo.routes.js";
+import photoUploadRoutes from "./routes/photoUpload.routes.js";
+import userRoutes from "./routes/user.routes.js";
+import conversationRoutes from "./routes/conversation.routes.js";
+import messageRoutes from "./routes/message.routes.js";
 
 dotenv.config();
 validateEnv();
 
 const app = express();
 const PORT = validateEnv.PORT || 8000;
-const API_VERSION =  'api/v1'
+const API_VERSION = "api/v1";
 
 // Middleware
-app.use(cors({
-  origin: `http://localhost:${PORT}`, 
-  credentials: true
-}));
-app.use(express.json({ limit: '50mb' })); // Increased limit for image uploads
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(
+	cors({
+		origin: "*",
+		credentials: true,
+	})
+);
+app.use(express.json({ limit: "50mb" })); // Increased limit for image uploads
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // API Documentation
 app.use(`/${API_VERSION}/docs`, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -40,37 +42,37 @@ app.use(`/${API_VERSION}/conversation`, conversationRoutes);
 app.use(`/${API_VERSION}/message`, messageRoutes);
 
 // Health check route
-app.get('/', (req, res) => {
-  res.send('Locket Backend API is running!');
+app.get("/", (req, res) => {
+	res.send("Locket Backend API is running!");
 });
 
 // Health check endpoint for Render
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    message: 'Locket Backend API is healthy',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0'
-  });
+app.get("/api/health", (req, res) => {
+	res.status(200).json({
+		status: "OK",
+		message: "Locket Backend API is healthy",
+		timestamp: new Date().toISOString(),
+		version: "1.0.0",
+	});
 });
 
 // Centralized error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Internal Server Error', error: err.message });
+	console.error(err.stack);
+	res.status(500).json({ message: "Internal Server Error", error: err.message });
 });
 
 // Start server after DB connection
 const startServer = async () => {
-  try {
-    await connectDB();
-    app.listen(PORT, () => {
-      console.log(`Server is running on host http://localhost:${PORT}/${API_VERSION}`);
-    });
-  } catch (err) {
-    console.error('Failed to connect to database:', err);
-    process.exit(1);
-  }
+	try {
+		await connectDB();
+		app.listen(PORT, () => {
+			console.log(`Server is running on host http://localhost:${PORT}/${API_VERSION}`);
+		});
+	} catch (err) {
+		console.error("Failed to connect to database:", err);
+		process.exit(1);
+	}
 };
 
 startServer();

@@ -13,7 +13,9 @@ services:
       - key: PORT
         value: 10000
       - key: MONGODB_URI
-        sync: false
+        fromDatabase:
+          name: locket-mongodb
+          property: connectionString
       - key: JWT_SECRET
         sync: false
       - key: ACCESS_TOKEN_EXPIRES_IN
@@ -27,7 +29,7 @@ services:
       - key: CLOUDINARY_API_SECRET
         sync: false
       - key: CORS_ORIGIN
-        value: https://your-frontend-domain.com
+        value: *
     autoDeploy: true
     branch: main
 
@@ -36,4 +38,4 @@ databases:
     databaseName: locket
     user: locket_user
     plan: starter
-    region: oregon 
+    region: oregon
