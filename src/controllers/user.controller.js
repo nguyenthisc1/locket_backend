@@ -6,6 +6,8 @@ import { createSuccessResponse, createErrorResponse, createValidationErrorRespon
 export class UserController {
 	static async getProfile(req, res) {
 		try {
+			console.log('user: ', req.user._id);
+			
 			const user = await User.findById(req.user._id).select("-passwordHash");
 			if (!user) {
 				return res.status(404).json(createErrorResponse("user.userNotFound", null, null, detectLanguage(req)));

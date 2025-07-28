@@ -7,11 +7,11 @@ import swaggerSpec from "./docs/swagger.js";
 import validateEnv from "./utils/validateEnv.js";
 
 import authRoutes from "./routes/auth.routes.js";
+import conversationRoutes from "./routes/conversation.routes.js";
+import messageRoutes from "./routes/message.routes.js";
 import photoRoutes from "./routes/photo.routes.js";
 import photoUploadRoutes from "./routes/photoUpload.routes.js";
 import userRoutes from "./routes/user.routes.js";
-import conversationRoutes from "./routes/conversation.routes.js";
-import messageRoutes from "./routes/message.routes.js";
 
 dotenv.config();
 validateEnv();
@@ -29,6 +29,13 @@ app.use(
 );
 app.use(express.json({ limit: "50mb" })); // Increased limit for image uploads
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+// app.use(cors({
+// 	origin: `http://localhost:${PORT}`, 
+// 	credentials: true
+//   }));
+//   app.use(express.json({ limit: '50mb' })); // Increased limit for image uploads
+//   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+  
 
 // API Documentation
 app.use(`/${API_VERSION}/docs`, swaggerUi.serve, swaggerUi.setup(swaggerSpec));

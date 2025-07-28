@@ -1,9 +1,9 @@
-import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { validationResult } from "express-validator";
-import { RegisterUserDTO, LoginUserDTO, AuthResponseDTO } from "../dtos/index.js";
-import { createSuccessResponse, createErrorResponse, createValidationErrorResponse, detectLanguage } from "../utils/translations.js";
+import jwt from "jsonwebtoken";
+import { AuthResponseDTO, LoginUserDTO, RegisterUserDTO } from "../dtos/index.js";
+import User from "../models/user.model.js";
+import { createErrorResponse, createSuccessResponse, createValidationErrorResponse, detectLanguage } from "../utils/translations.js";
 
 export class AuthController {
 	// Register controller
@@ -23,8 +23,8 @@ export class AuthController {
 			const user = await User.create({ username, email, phoneNumber, passwordHash });
 
 			// Generate tokens
-			const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN });
-			const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN });
+			const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+			const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
 			// Set refresh token in httpOnly cookie
 			res.cookie("refreshToken", refreshToken, {
@@ -68,8 +68,8 @@ export class AuthController {
 			if (!isMatch) return res.status(401).json(createErrorResponse("auth.invalidCredentials", null, null, detectLanguage(req)));
 
 			// Generate tokens
-			const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN });
-			const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN });
+			const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+			const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
 			// Set refresh token in httpOnly cookie
 			res.cookie("refreshToken", refreshToken, {
@@ -91,6 +91,8 @@ export class AuthController {
 			});
 
 			res.json(createSuccessResponse("auth.loginSuccess", authResponse.toJSON(), detectLanguage(req)));
+			// res.json(authResponse.toJSON());
+
 		} catch (err) {
 			res.status(500).json(createErrorResponse("auth.loginFailed", err.message, null, detectLanguage(req)));
 		}
@@ -103,8 +105,8 @@ export class AuthController {
 
 		try {
 			const decoded = jwt.verify(token, process.env.JWT_SECRET);
-			const accessToken = jwt.sign({ id: decoded.id }, process.env.JWT_SECRET, { expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN });
-			const newRefreshToken = jwt.sign({ id: decoded.id }, process.env.JWT_SECRET, { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN });
+			const accessToken = jwt.sign({ id: decoded.id }, process.env.JWT_SECRET, { expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '7d' });
+			const newRefreshToken = jwt.sign({ id: decoded.id }, process.env.JWT_SECRET, { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d' });
 
 			// Set new refresh token in httpOnly cookie
 			res.cookie("refreshToken", newRefreshToken, {

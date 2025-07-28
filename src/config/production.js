@@ -8,8 +8,8 @@ export const productionConfig = {
   
   // JWT Configuration
   jwtSecret: process.env.JWT_SECRET,
-  accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '1h',
-  refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
+  accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '7d',
+  refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d',
   
   // Cloudinary Configuration
   cloudinary: {
