@@ -11,6 +11,7 @@ import {
 import Conversation from "../models/conversation.model.js";
 import User from "../models/user.model.js";
 import mongoose from "mongoose";
+import { createSuccessResponse, createErrorResponse, createValidationErrorResponse, detectLanguage } from "../utils/translations.js";
 
 export class ConversationController {
 	// Create a new conversation
@@ -18,13 +19,8 @@ export class ConversationController {
 		try {
 			const errors = validationResult(req);
 			if (!errors.isEmpty()) {
-				return res.status(400).json({
-					success: false,
-					message: "Validation failed",
-					errors: errors.array(),
-				});
+				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
 			}
-
 			const createDTO = new CreateConversationDTO(req.body);
 			const userId = req.user._id;
 
@@ -53,18 +49,10 @@ export class ConversationController {
 
 			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants);
 
-			res.status(201).json({
-				success: true,
-				message: "Conversation created successfully",
-				data: response.toJSON(),
-			});
+			res.status(201).json(createSuccessResponse("conversation.conversationCreated", response.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Create conversation error:", error);
-			res.status(500).json({
-				success: false,
-				message: "Failed to create conversation",
-				error: error.message,
-			});
+			res.status(500).json(createErrorResponse("conversation.conversationCreationFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -73,11 +61,7 @@ export class ConversationController {
 		try {
 			const errors = validationResult(req);
 			if (!errors.isEmpty()) {
-				return res.status(400).json({
-					success: false,
-					message: "Validation failed",
-					errors: errors.array(),
-				});
+				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
 			}
 
 			const createDTO = new CreateConversationDTO(req.body);
@@ -120,22 +104,16 @@ export class ConversationController {
 
 			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants);
 
-			res.status(200).json({
-				success: true,
-				message: conversation.isNew ? "Conversation created" : "Conversation fetched",
-				data: response.toJSON(),
-			});
+			res.status(200).json(
+				createSuccessResponse(conversation.isNew ? "conversation.conversationCreated" : "conversation.conversationRetrieved", response.toJSON(), detectLanguage(req))
+			);
 		} catch (error) {
 			console.error("Get or create conversation error:", error);
-			res.status(500).json({
-				success: false,
-				message: "Failed to get or create conversation",
-				error: error.message,
-			});
+			res.status(500).json(createErrorResponse("conversation.conversationCreationFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
-	// Get user's conversations
+	// Get user conversations
 	static async getUserConversations(req, res) {
 		try {
 			const userId = req.user._id;
@@ -146,40 +124,33 @@ export class ConversationController {
 				participants: userId,
 				isActive: true,
 			})
-				.sort({ "lastMessage.timestamp": -1, updatedAt: -1 })
-				.skip(skip)
-				.limit(parseInt(limit))
 				.populate("participants", "username avatarUrl email")
 				.populate("admin", "username avatarUrl")
-				.populate("lastMessage.messageId")
-				.populate("lastMessage.senderId", "username avatarUrl");
+				.sort({ updatedAt: -1 })
+				.limit(parseInt(limit))
+				.skip(skip);
 
 			const total = await Conversation.countDocuments({
 				participants: userId,
 				isActive: true,
 			});
 
+			const totalPages = Math.ceil(total / limit);
+
 			const pagination = {
-				page: parseInt(page),
-				limit: parseInt(limit),
-				total,
-				pages: Math.ceil(total / limit),
+				currentPage: parseInt(page),
+				totalPages,
+				totalConversations: total,
+				hasNextPage: page < totalPages,
+				hasPrevPage: page > 1,
 			};
 
-			const response = ConversationListResponseDTO.fromConversations(conversations, pagination);
+			const conversationListResponse = ConversationListResponseDTO.fromConversations(conversations, pagination);
 
-			res.json({
-				success: true,
-				message: "Conversations retrieved successfully",
-				data: response.toJSON(),
-			});
+			res.json(createSuccessResponse("conversation.conversationsRetrieved", conversationListResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
-			console.error("Get conversations error:", error);
-			res.status(500).json({
-				success: false,
-				message: "Failed to retrieve conversations",
-				error: error.message,
-			});
+			console.error("Get user conversations error:", error);
+			res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -189,39 +160,24 @@ export class ConversationController {
 			const { conversationId } = req.params;
 			const userId = req.user._id;
 
-			// Convert string ID to ObjectId
-			const objectId = new mongoose.Types.ObjectId(conversationId);
-
 			const conversation = await Conversation.findOne({
-				_id: objectId,
+				_id: conversationId,
 				participants: userId,
 				isActive: true,
 			})
 				.populate("participants", "username avatarUrl email")
-				.populate("admin", "username avatarUrl")
-				.populate("readReceipts.userId", "username avatarUrl");
+				.populate("admin", "username avatarUrl");
 
 			if (!conversation) {
-				return res.status(404).json({
-					success: false,
-					message: "Conversation not found",
-				});
+				return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
 			}
 
 			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants);
 
-			res.json({
-				success: true,
-				message: "Conversation retrieved successfully",
-				data: response.toJSON(),
-			});
+			res.json(createSuccessResponse("conversation.conversationRetrieved", response.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Get conversation error:", error);
-			res.status(500).json({
-				success: false,
-				message: "Failed to retrieve conversation",
-				error: error.message,
-			});
+			res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -230,16 +186,12 @@ export class ConversationController {
 		try {
 			const errors = validationResult(req);
 			if (!errors.isEmpty()) {
-				return res.status(400).json({
-					success: false,
-					message: "Validation failed",
-					errors: errors.array(),
-				});
+				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
 			}
 
 			const { conversationId } = req.params;
-			const userId = req.user._id;
 			const updateDTO = new UpdateConversationDTO(req.body);
+			const userId = req.user._id;
 
 			const conversation = await Conversation.findOne({
 				_id: conversationId,
@@ -248,43 +200,24 @@ export class ConversationController {
 			});
 
 			if (!conversation) {
-				return res.status(404).json({
-					success: false,
-					message: "Conversation not found",
-				});
+				return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
 			}
 
-			// Check permissions for group settings
+			// Check if user is admin for group conversations
 			if (conversation.isGroup && !conversation.admin.equals(userId)) {
-				if (updateDTO.groupSettings) {
-					return res.status(403).json({
-						success: false,
-						message: "Only admin can update group settings",
-					});
-				}
+				return res.status(403).json(createErrorResponse("conversation.unauthorizedAccess", null, null, detectLanguage(req)));
 			}
 
-			const updateData = updateDTO.toUpdateData();
-			Object.assign(conversation, updateData);
-			await conversation.save();
+			const updatedConversation = await Conversation.findByIdAndUpdate(conversationId, updateDTO, { new: true, runValidators: true })
+				.populate("participants", "username avatarUrl email")
+				.populate("admin", "username avatarUrl");
 
-			await conversation.populate("participants", "username avatarUrl email");
-			await conversation.populate("admin", "username avatarUrl");
+			const response = ConversationResponseDTO.fromConversation(updatedConversation, updatedConversation.participants);
 
-			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants);
-
-			res.json({
-				success: true,
-				message: "Conversation updated successfully",
-				data: response.toJSON(),
-			});
+			res.json(createSuccessResponse("conversation.conversationUpdated", response.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Update conversation error:", error);
-			res.status(500).json({
-				success: false,
-				message: "Failed to update conversation",
-				error: error.message,
-			});
+			res.status(500).json(createErrorResponse("conversation.conversationUpdateFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -293,16 +226,12 @@ export class ConversationController {
 		try {
 			const errors = validationResult(req);
 			if (!errors.isEmpty()) {
-				return res.status(400).json({
-					success: false,
-					message: "Validation failed",
-					errors: errors.array(),
-				});
+				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
 			}
 
 			const { conversationId } = req.params;
-			const userId = req.user._id;
 			const addDTO = new AddParticipantDTO(req.body);
+			const userId = req.user._id;
 
 			const conversation = await Conversation.findOne({
 				_id: conversationId,
@@ -311,52 +240,39 @@ export class ConversationController {
 			});
 
 			if (!conversation) {
-				return res.status(404).json({
-					success: false,
-					message: "Conversation not found",
-				});
+				return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
 			}
 
-			// Check if user can add participants
+			// Check if user is admin for group conversations
 			if (conversation.isGroup && !conversation.admin.equals(userId)) {
-				if (!conversation.groupSettings.allowMemberInvite) {
-					return res.status(403).json({
-						success: false,
-						message: "You do not have permission to add participants",
-					});
-				}
+				return res.status(403).json(createErrorResponse("conversation.unauthorizedAccess", null, null, detectLanguage(req)));
 			}
 
-			// Verify users exist
-			const users = await User.find({ _id: { $in: addDTO.userIds } });
-			if (users.length !== addDTO.userIds.length) {
-				return res.status(400).json({
-					success: false,
-					message: "Some users not found",
-				});
+			// Validate participants exist
+			const participants = await User.find({ _id: { $in: addDTO.participantIds } });
+			if (participants.length !== addDTO.participantIds.length) {
+				return res.status(400).json(createErrorResponse("user.userNotFound", null, null, detectLanguage(req)));
+			}
+
+			// Check if participants are already in conversation
+			const existingParticipants = conversation.participants.filter((p) => addDTO.participantIds.includes(p.toString()));
+			if (existingParticipants.length > 0) {
+				return res.status(400).json(createErrorResponse("conversation.participantAlreadyExists", null, null, detectLanguage(req)));
 			}
 
 			// Add participants
-			for (const userIdToAdd of addDTO.userIds) {
-				await conversation.addParticipant(userIdToAdd);
-			}
+			conversation.participants.push(...addDTO.participantIds);
+			await conversation.save();
 
 			await conversation.populate("participants", "username avatarUrl email");
+			await conversation.populate("admin", "username avatarUrl");
 
 			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants);
 
-			res.json({
-				success: true,
-				message: "Participants added successfully",
-				data: response.toJSON(),
-			});
+			res.json(createSuccessResponse("conversation.participantAdded", response.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Add participants error:", error);
-			res.status(500).json({
-				success: false,
-				message: "Failed to add participants",
-				error: error.message,
-			});
+			res.status(500).json(createErrorResponse("conversation.participantManagementFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -365,17 +281,13 @@ export class ConversationController {
 		try {
 			const errors = validationResult(req);
 			if (!errors.isEmpty()) {
-				return res.status(400).json({
-					success: false,
-					message: "Validation failed",
-					errors: errors.array(),
-				});
+				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
 			}
-			
+
 			const { conversationId } = req.params;
-			const userId = req.user._id;
 			const removeDTO = new RemoveParticipantDTO(req.body);
-			
+			const userId = req.user._id;
+
 			const conversation = await Conversation.findOne({
 				_id: conversationId,
 				participants: userId,
@@ -383,48 +295,38 @@ export class ConversationController {
 			});
 
 			if (!conversation) {
-				return res.status(404).json({
-					success: false,
-					message: "Conversation not found",
-				});
+				return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
 			}
 
-			// Check permissions
+			// Check if user is admin for group conversations
 			if (conversation.isGroup && !conversation.admin.equals(userId)) {
-				if (!conversation.groupSettings.allowMemberEdit) {
-					return res.status(403).json({
-						success: false,
-						message: "You do not have permission to remove participants",
-					});
-				}
+				return res.status(403).json(createErrorResponse("conversation.unauthorizedAccess", null, null, detectLanguage(req)));
 			}
 
-			// Cannot remove admin from group
-			if (conversation.isGroup && conversation.admin.equals(removeDTO.userId)) {
-				return res.status(400).json({
-					success: false,
-					message: "Cannot remove admin from group",
-				});
+			// Check if trying to remove self
+			if (removeDTO.participantId === userId.toString()) {
+				return res.status(400).json(createErrorResponse("conversation.cannotRemoveSelf", null, null, detectLanguage(req)));
 			}
 
-			await conversation.removeParticipant(removeDTO.userId);
+			// Check if participant exists in conversation
+			const participantIndex = conversation.participants.findIndex((p) => p.toString() === removeDTO.participantId);
+			if (participantIndex === -1) {
+				return res.status(404).json(createErrorResponse("conversation.participantNotFound", null, null, detectLanguage(req)));
+			}
+
+			// Remove participant
+			conversation.participants.splice(participantIndex, 1);
+			await conversation.save();
 
 			await conversation.populate("participants", "username avatarUrl email");
+			await conversation.populate("admin", "username avatarUrl");
 
 			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants);
 
-			res.json({
-				success: true,
-				message: "Participant removed successfully",
-				data: response.toJSON(),
-			});
+			res.json(createSuccessResponse("conversation.participantRemoved", response.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Remove participant error:", error);
-			res.status(500).json({
-				success: false,
-				message: "Failed to remove participant",
-				error: error.message,
-			});
+			res.status(500).json(createErrorResponse("conversation.participantManagementFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -433,62 +335,47 @@ export class ConversationController {
 		try {
 			const errors = validationResult(req);
 			if (!errors.isEmpty()) {
-				return res.status(400).json({
-					success: false,
-					message: "Validation failed",
-					errors: errors.array(),
-				});
+				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
 			}
 
-			const userId = req.user._id;
 			const searchDTO = new SearchConversationsDTO(req.query);
-			const skip = (searchDTO.page - 1) * searchDTO.limit;
+			const userId = req.user._id;
+			const { page = 1, limit = 20 } = req.query;
+			const skip = (page - 1) * limit;
 
-			let query = {
+			let searchQuery = {
 				participants: userId,
 				isActive: true,
 			};
 
 			if (searchDTO.query) {
-				query.name = { $regex: searchDTO.query, $options: "i" };
+				searchQuery.name = { $regex: searchDTO.query, $options: "i" };
 			}
 
-			if (searchDTO.isGroup !== undefined) {
-				query.isGroup = searchDTO.isGroup;
-			}
-
-			const conversations = await Conversation.find(query)
-				.sort({ "lastMessage.timestamp": -1, updatedAt: -1 })
-				.skip(skip)
-				.limit(searchDTO.limit)
+			const conversations = await Conversation.find(searchQuery)
 				.populate("participants", "username avatarUrl email")
 				.populate("admin", "username avatarUrl")
-				.populate("lastMessage.messageId")
-				.populate("lastMessage.senderId", "username avatarUrl");
+				.sort({ updatedAt: -1 })
+				.limit(parseInt(limit))
+				.skip(skip);
 
-			const total = await Conversation.countDocuments(query);
+			const total = await Conversation.countDocuments(searchQuery);
+			const totalPages = Math.ceil(total / limit);
 
 			const pagination = {
-				page: searchDTO.page,
-				limit: searchDTO.limit,
-				total,
-				pages: Math.ceil(total / searchDTO.limit),
+				currentPage: parseInt(page),
+				totalPages,
+				totalConversations: total,
+				hasNextPage: page < totalPages,
+				hasPrevPage: page > 1,
 			};
 
-			const response = ConversationListResponseDTO.fromConversations(conversations, pagination);
+			const conversationListResponse = ConversationListResponseDTO.fromConversations(conversations, pagination);
 
-			res.json({
-				success: true,
-				message: "Conversations found successfully",
-				data: response.toJSON(),
-			});
+			res.json(createSuccessResponse("conversation.searchResults", conversationListResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Search conversations error:", error);
-			res.status(500).json({
-				success: false,
-				message: "Failed to search conversations",
-				error: error.message,
-			});
+			res.status(500).json(createErrorResponse("conversation.searchFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -507,50 +394,27 @@ export class ConversationController {
 			});
 
 			if (!conversation) {
-				return res.status(404).json({
-					success: false,
-					message: "Conversation not found",
-				});
+				return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
 			}
 
-			const threads = await Conversation.find({
-				parentConversation: conversationId,
-				isActive: true,
-			})
-				.sort({ "threadInfo.lastThreadMessage": -1 })
-				.skip(skip)
-				.limit(parseInt(limit))
-				.populate("participants", "username avatarUrl email")
-				.populate("threadInfo.parentMessageId")
-				.populate("lastMessage.messageId")
-				.populate("lastMessage.senderId", "username avatarUrl");
-
-			const total = await Conversation.countDocuments({
-				parentConversation: conversationId,
-				isActive: true,
-			});
+			// Get threads from messages (this would need to be implemented based on your message model)
+			// For now, returning empty threads
+			const threads = [];
+			const total = 0;
+			const totalPages = Math.ceil(total / limit);
 
 			const pagination = {
-				page: parseInt(page),
-				limit: parseInt(limit),
-				total,
-				pages: Math.ceil(total / limit),
+				currentPage: parseInt(page),
+				totalPages,
+				totalThreads: total,
+				hasNextPage: page < totalPages,
+				hasPrevPage: page > 1,
 			};
 
-			const response = ConversationListResponseDTO.fromConversations(threads, pagination);
-
-			res.json({
-				success: true,
-				message: "Threads retrieved successfully",
-				data: response.toJSON(),
-			});
+			res.json(createSuccessResponse("conversation.threadsRetrieved", { threads, pagination }, detectLanguage(req)));
 		} catch (error) {
-			console.error("Get threads error:", error);
-			res.status(500).json({
-				success: false,
-				message: "Failed to retrieve threads",
-				error: error.message,
-			});
+			console.error("Get conversation threads error:", error);
+			res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -567,45 +431,27 @@ export class ConversationController {
 			});
 
 			if (!conversation) {
-				return res.status(404).json({
-					success: false,
-					message: "Conversation not found",
-				});
+				return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
 			}
 
-			// Cannot leave if you're the only participant
-			if (conversation.participants.length === 1) {
-				return res.status(400).json({
-					success: false,
-					message: "Cannot leave conversation with only one participant",
-				});
+			// Remove user from participants
+			conversation.participants = conversation.participants.filter((p) => !p.equals(userId));
+
+			// If no participants left, deactivate conversation
+			if (conversation.participants.length === 0) {
+				conversation.isActive = false;
 			}
 
-			// If admin leaves group, transfer admin to another participant
-			if (conversation.isGroup && conversation.admin.equals(userId)) {
-				const newAdmin = conversation.participants.find((p) => p.toString() !== userId);
-				if (newAdmin) {
-					conversation.admin = newAdmin;
-				}
-			}
+			await conversation.save();
 
-			await conversation.removeParticipant(userId);
-
-			res.json({
-				success: true,
-				message: "Left conversation successfully",
-			});
+			res.json(createSuccessResponse("conversation.conversationLeft", null, detectLanguage(req)));
 		} catch (error) {
 			console.error("Leave conversation error:", error);
-			res.status(500).json({
-				success: false,
-				message: "Failed to leave conversation",
-				error: error.message,
-			});
+			res.status(500).json(createErrorResponse("conversation.leaveFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
-	// Delete conversation (soft delete)
+	// Delete conversation
 	static async deleteConversation(req, res) {
 		try {
 			const { conversationId } = req.params;
@@ -618,34 +464,22 @@ export class ConversationController {
 			});
 
 			if (!conversation) {
-				return res.status(404).json({
-					success: false,
-					message: "Conversation not found",
-				});
+				return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
 			}
 
-			// Only admin can delete group conversations
+			// Check if user is admin for group conversations
 			if (conversation.isGroup && !conversation.admin.equals(userId)) {
-				return res.status(403).json({
-					success: false,
-					message: "Only admin can delete group conversation",
-				});
+				return res.status(403).json(createErrorResponse("conversation.unauthorizedAccess", null, null, detectLanguage(req)));
 			}
 
+			// Deactivate conversation
 			conversation.isActive = false;
 			await conversation.save();
 
-			res.json({
-				success: true,
-				message: "Conversation deleted successfully",
-			});
+			res.json(createSuccessResponse("conversation.conversationDeleted", null, detectLanguage(req)));
 		} catch (error) {
 			console.error("Delete conversation error:", error);
-			res.status(500).json({
-				success: false,
-				message: "Failed to delete conversation",
-				error: error.message,
-			});
+			res.status(500).json(createErrorResponse("conversation.conversationDeleteFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 }

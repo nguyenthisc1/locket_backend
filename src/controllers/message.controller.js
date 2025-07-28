@@ -13,6 +13,7 @@ import {
 } from '../dtos/message.dto.js';
 import Conversation from '../models/conversation.model.js';
 import Message from '../models/message.model.js';
+import { createSuccessResponse, createErrorResponse, createValidationErrorResponse, detectLanguage } from '../utils/translations.js';
 
 export class MessageController {
   // Send a message
@@ -20,11 +21,7 @@ export class MessageController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation failed',
-          errors: errors.array()
-        });
+        return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
       }
 
       const createDTO = new CreateMessageDTO(req.body);
@@ -38,10 +35,7 @@ export class MessageController {
       });
 
       if (!conversation) {
-        return res.status(404).json({
-          success: false,
-          message: 'Conversation not found or access denied'
-        });
+        return res.status(404).json(createErrorResponse("message.conversationNotFound", null, null, detectLanguage(req)));
       }
 
       // Handle reply message
@@ -139,18 +133,10 @@ export class MessageController {
 
       const response = MessageResponseDTO.fromMessage(message, message.senderId);
 
-      res.status(201).json({
-        success: true,
-        message: 'Message sent successfully',
-        data: response.toJSON()
-      });
+      res.status(201).json(createSuccessResponse("message.messageSent", response.toJSON(), detectLanguage(req)));
     } catch (error) {
       console.error('Send message error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to send message',
-        error: error.message
-      });
+      res.status(500).json(createErrorResponse("message.messageSendFailed", error.message, null, detectLanguage(req)));
     }
   }
 
@@ -170,10 +156,7 @@ export class MessageController {
       });
 
       if (!conversation) {
-        return res.status(404).json({
-          success: false,
-          message: 'Conversation not found or access denied'
-        });
+        return res.status(404).json(createErrorResponse("message.conversationNotFound", null, null, detectLanguage(req)));
       }
 
       const messages = await Message.getConversationMessages(conversationId, parseInt(limit), skip);
@@ -192,18 +175,10 @@ export class MessageController {
 
       const response = MessageListResponseDTO.fromMessages(messages, pagination);
 
-      res.json({
-        success: true,
-        message: 'Messages retrieved successfully',
-        data: response.toJSON()
-      });
+      res.json(createSuccessResponse("message.messagesRetrieved", response.toJSON(), detectLanguage(req)));
     } catch (error) {
       console.error('Get messages error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve messages',
-        error: error.message
-      });
+      res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
     }
   }
 
@@ -225,10 +200,7 @@ export class MessageController {
       console.log("🚀 ~ MessageController ~ getMessage ~ message:", message)
 
       if (!message) {
-        return res.status(404).json({
-          success: false,
-          message: 'Message not found'
-        });
+        return res.status(404).json(createErrorResponse("message.messageNotFound", null, null, detectLanguage(req)));
       }
 
       // Check if user has access to this message
@@ -239,26 +211,15 @@ export class MessageController {
       });
 
       if (!conversation) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied to this message'
-        });
+        return res.status(403).json(createErrorResponse("message.unauthorizedAccess", null, null, detectLanguage(req)));
       }
 
       const response = MessageResponseDTO.fromMessage(message, message.senderId);
 
-      res.json({
-        success: true,
-        message: 'Message retrieved successfully',
-        data: response.toJSON()
-      });
+      res.json(createSuccessResponse("message.messageRetrieved", response.toJSON(), detectLanguage(req)));
     } catch (error) {
       console.error('Get message error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve message',
-        error: error.message
-      });
+      res.status(500).json(createErrorResponse("message.messageRetrievedFailed", error.message, null, detectLanguage(req)));
     }
   }
 
@@ -267,11 +228,7 @@ export class MessageController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation failed',
-          errors: errors.array()
-        });
+        return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
       }
 
       const { messageId } = req.params;
@@ -287,28 +244,19 @@ export class MessageController {
         });
       } catch (err) {
         if (err.name === 'CastError') {
-          return res.status(400).json({
-            success: false,
-            message: 'Invalid message ID'
-          });
+          return res.status(400).json(createErrorResponse("message.invalidMessageId", null, null, detectLanguage(req)));
         }
         throw err;
       }
 
       if (!message) {
-        return res.status(404).json({
-          success: false,
-          message: 'Message not found or you cannot edit this message'
-        });
+        return res.status(404).json(createErrorResponse("message.cannotEditOthersMessage", null, null, detectLanguage(req)));
       }
 
       // Check if message is too old to edit (e.g., 15 minutes)
       const editTimeLimit = 15 * 60 * 1000; // 15 minutes in milliseconds
       if (Date.now() - message.createdAt.getTime() > editTimeLimit) {
-        return res.status(400).json({
-          success: false,
-          message: 'Message is too old to edit'
-        });
+        return res.status(400).json(createErrorResponse("message.messageUpdateFailed", "Message is too old to edit", null, detectLanguage(req)));
       }
 
       await message.editMessage(updateDTO.text);
@@ -317,18 +265,10 @@ export class MessageController {
 
       const response = MessageResponseDTO.fromMessage(message, message.senderId);
 
-      res.json({
-        success: true,
-        message: 'Message edited successfully',
-        data: response.toJSON()
-      });
+      res.json(createSuccessResponse("message.messageUpdated", response.toJSON(), detectLanguage(req)));
     } catch (error) {
       console.error('Edit message error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to edit message',
-        error: error.message
-      });
+      res.status(500).json(createErrorResponse("message.messageUpdateFailed", error.message, null, detectLanguage(req)));
     }
   }
 
@@ -345,25 +285,15 @@ export class MessageController {
       });
 
       if (!message) {
-        return res.status(404).json({
-          success: false,
-          message: 'Message not found or you cannot delete this message'
-        });
+        return res.status(404).json(createErrorResponse("message.cannotDeleteOthersMessage", null, null, detectLanguage(req)));
       }
 
       await message.deleteMessage();
 
-      res.json({
-        success: true,
-        message: 'Message deleted successfully'
-      });
+      res.json(createSuccessResponse("message.messageDeleted", null, detectLanguage(req)));
     } catch (error) {
       console.error('Delete message error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to delete message',
-        error: error.message
-      });
+      res.status(500).json(createErrorResponse("message.messageDeleteFailed", error.message, null, detectLanguage(req)));
     }
   }
 
@@ -372,11 +302,7 @@ export class MessageController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation failed',
-          errors: errors.array()
-        });
+        return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
       }
 
       const { messageId } = req.params;
@@ -391,19 +317,13 @@ export class MessageController {
         });
       } catch (err) {
         if (err.name === 'CastError') {
-          return res.status(400).json({
-            success: false,
-            message: 'Invalid message ID'
-          });
+          return res.status(400).json(createErrorResponse("message.invalidMessageId", null, null, detectLanguage(req)));
         }
         throw err;
       }
 
       if (!message) {
-        return res.status(404).json({
-          success: false,
-          message: 'Message not found'
-        });
+        return res.status(404).json(createErrorResponse("message.messageNotFound", null, null, detectLanguage(req)));
       }
 
       // Check if user has access to this message
@@ -414,10 +334,7 @@ export class MessageController {
       });
 
       if (!conversation) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied to this message'
-        });
+        return res.status(403).json(createErrorResponse("message.unauthorizedAccess", null, null, detectLanguage(req)));
       }
 
       await message.addReaction(userId, addDTO.reactionType);
@@ -426,37 +343,34 @@ export class MessageController {
 
       const response = MessageResponseDTO.fromMessage(message, message.senderId);
 
-      res.json({
-        success: true,
-        message: 'Reaction added successfully',
-        data: response.toJSON()
-      });
+      res.json(createSuccessResponse("message.reactionAdded", response.toJSON(), detectLanguage(req)));
     } catch (error) {
       console.error('Add reaction error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to add reaction',
-        error: error.message
-      });
+      res.status(500).json(createErrorResponse("message.reactionFailed", error.message, null, detectLanguage(req)));
     }
   }
 
   // Remove reaction from message
   static async removeReaction(req, res) {
     try {
-      const { messageId } = req.params;
+      const { messageId, reactionType } = req.params;
       const userId = req.user._id;
 
-      const message = await Message.findOne({
-        _id: messageId,
-        isDeleted: false
-      });
+      let message;
+      try {
+        message = await Message.findOne({
+          _id: messageId,
+          isDeleted: false
+        });
+      } catch (err) {
+        if (err.name === 'CastError') {
+          return res.status(400).json(createErrorResponse("message.invalidMessageId", null, null, detectLanguage(req)));
+        }
+        throw err;
+      }
 
       if (!message) {
-        return res.status(404).json({
-          success: false,
-          message: 'Message not found'
-        });
+        return res.status(404).json(createErrorResponse("message.messageNotFound", null, null, detectLanguage(req)));
       }
 
       // Check if user has access to this message
@@ -467,30 +381,19 @@ export class MessageController {
       });
 
       if (!conversation) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied to this message'
-        });
+        return res.status(403).json(createErrorResponse("message.unauthorizedAccess", null, null, detectLanguage(req)));
       }
 
-      await message.removeReaction(userId);
+      await message.removeReaction(userId, reactionType);
 
       await message.populate('senderId', 'username avatarUrl');
 
       const response = MessageResponseDTO.fromMessage(message, message.senderId);
 
-      res.json({
-        success: true,
-        message: 'Reaction removed successfully',
-        data: response.toJSON()
-      });
+      res.json(createSuccessResponse("message.reactionRemoved", response.toJSON(), detectLanguage(req)));
     } catch (error) {
       console.error('Remove reaction error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to remove reaction',
-        error: error.message
-      });
+      res.status(500).json(createErrorResponse("message.reactionFailed", error.message, null, detectLanguage(req)));
     }
   }
 
@@ -499,95 +402,89 @@ export class MessageController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation failed',
-          errors: errors.array()
-        });
+        return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
       }
 
-      const userId = req.user._id;
       const forwardDTO = new ForwardMessageDTO(req.body);
+      const userId = req.user._id;
 
-      // Verify target conversations exist and user has access
-      const targetConversations = await Conversation.find({
-        _id: { $in: forwardDTO.targetConversationIds },
+      // Verify target conversation exists and user is participant
+      const targetConversation = await Conversation.findOne({
+        _id: forwardDTO.targetConversationId,
         participants: userId,
         isActive: true
       });
 
-      if (targetConversations.length !== forwardDTO.targetConversationIds.length) {
-        return res.status(400).json({
-          success: false,
-          message: 'Some target conversations not found or access denied'
-        });
-      }
-
-      // Get original messages
-      const originalMessages = await Message.find({
-        _id: { $in: forwardDTO.messageIds },
-        isDeleted: false
-      }).populate('senderId', 'username avatarUrl');
-
-      if (originalMessages.length !== forwardDTO.messageIds.length) {
-        return res.status(400).json({
-          success: false,
-          message: 'Some messages not found'
-        });
+      if (!targetConversation) {
+        return res.status(404).json(createErrorResponse("message.conversationNotFound", null, null, detectLanguage(req)));
       }
 
       const forwardedMessages = [];
 
-      // Forward each message to each target conversation
-      for (const conversation of targetConversations) {
-        for (const originalMessage of originalMessages) {
-          const forwardInfo = {
-            originalMessageId: originalMessage._id,
-            originalSenderId: originalMessage.senderId._id,
-            originalSenderName: originalMessage.senderId.username,
-            originalConversationId: originalMessage.conversationId,
-            originalConversationName: conversation.name,
-            forwardedAt: new Date()
-          };
+      for (const messageId of forwardDTO.messageIds) {
+        try {
+          const originalMessage = await Message.findOne({
+            _id: messageId,
+            isDeleted: false
+          });
 
-          const message = new Message({
-            conversationId: conversation._id,
+          if (!originalMessage) {
+            continue; // Skip if message not found
+          }
+
+          // Check if user has access to original message
+          const originalConversation = await Conversation.findOne({
+            _id: originalMessage.conversationId,
+            participants: userId,
+            isActive: true
+          });
+
+          if (!originalConversation) {
+            continue; // Skip if no access to original message
+          }
+
+          // Create forwarded message
+          const forwardedMessage = new Message({
+            conversationId: forwardDTO.targetConversationId,
             senderId: userId,
             text: originalMessage.text,
             type: originalMessage.type,
             attachments: originalMessage.attachments,
-            forwardedFrom: originalMessage.senderId._id,
-            forwardInfo,
+            forwardInfo: {
+              originalMessageId: originalMessage._id,
+              originalSenderId: originalMessage.senderId,
+              originalSenderName: originalMessage.senderId.username,
+              originalConversationId: originalMessage.conversationId,
+              originalConversationName: originalConversation.name,
+              forwardedAt: new Date()
+            },
             metadata: {
-              clientMessageId: `forward_${Date.now()}_${Math.random()}`,
-              deviceId: 'server',
-              platform: 'web'
+              clientMessageId: `forward_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              deviceId: req.headers['device-id'] || 'unknown',
+              platform: req.headers['platform'] || 'unknown'
             }
           });
 
-          await message.save();
-          forwardedMessages.push(message);
+          await forwardedMessage.save();
+          await forwardedMessage.populate('senderId', 'username avatarUrl');
 
-          // Update conversation's last message
-          await conversation.updateLastMessage(message);
+          const messageResponse = MessageResponseDTO.fromMessage(forwardedMessage, forwardedMessage.senderId);
+          forwardedMessages.push(messageResponse.toJSON());
+        } catch (error) {
+          console.error(`Error forwarding message ${messageId}:`, error);
+          // Continue with other messages
         }
       }
 
-      res.json({
-        success: true,
-        message: 'Messages forwarded successfully',
-        data: {
-          forwardedCount: forwardedMessages.length,
-          targetConversations: forwardDTO.targetConversationIds.length
-        }
-      });
+      // Update target conversation's last message
+      if (forwardedMessages.length > 0) {
+        await targetConversation.updateLastMessage(forwardedMessages[forwardedMessages.length - 1]);
+      }
+
+      res.json(createSuccessResponse("message.messageForwarded", { messages: forwardedMessages }, detectLanguage(req)));
     } catch (error) {
       console.error('Forward messages error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to forward messages',
-        error: error.message
-      });
+      res.status(500).json(createErrorResponse("message.forwardFailed", error.message, null, detectLanguage(req)));
     }
   }
 
@@ -596,123 +493,24 @@ export class MessageController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation failed',
-          errors: errors.array()
-        });
+        return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
       }
 
       const { messageId } = req.params;
       const userId = req.user._id;
       const replyDTO = new ReplyMessageDTO(req.body);
 
-      const originalMessage = await Message.findOne({
+      // Find the parent message
+      const parentMessage = await Message.findOne({
         _id: messageId,
         isDeleted: false
       });
 
-      if (!originalMessage) {
-        return res.status(404).json({
-          success: false,
-          message: 'Original message not found'
-        });
-      }
-
-      // Check if user has access to the conversation
-      const conversation = await Conversation.findOne({
-        _id: originalMessage.conversationId,
-        participants: userId,
-        isActive: true
-      });
-
-      if (!conversation) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied to this conversation'
-        });
-      }
-
-      const replyInfo = {
-        messageId: originalMessage._id,
-        text: originalMessage.text || 'Media',
-        senderName: originalMessage.senderId.username,
-        attachmentType: originalMessage.attachments?.[0]?.type
-      };
-
-      const message = new Message({
-        conversationId: originalMessage.conversationId,
-        senderId: userId,
-        text: replyDTO.text,
-        type: replyDTO.type,
-        attachments: replyDTO.attachments,
-        replyTo: originalMessage._id,
-        replyInfo,
-        threadInfo: {
-          parentMessageId: originalMessage._id
-        },
-        metadata: {
-          ...replyDTO.metadata,
-          clientMessageId: `reply_${Date.now()}_${Math.random()}`,
-          deviceId: replyDTO.metadata?.deviceId || 'server',
-          platform: replyDTO.metadata?.platform || 'web'
-        }
-      });
-
-      await message.save();
-
-      // Update conversation's last message
-      await conversation.updateLastMessage(message);
-
-      await message.populate('senderId', 'username avatarUrl');
-      await message.populate('replyTo');
-
-      const response = MessageResponseDTO.fromMessage(message, message.senderId, originalMessage);
-
-      res.status(201).json({
-        success: true,
-        message: 'Reply sent successfully',
-        data: response.toJSON()
-      });
-    } catch (error) {
-      console.error('Reply to message error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to send reply',
-        error: error.message
-      });
-    }
-  }
-
-  // Get thread messages
-  static async getThreadMessages(req, res) {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation failed',
-          errors: errors.array()
-        });
-      }
-
-      const userId = req.user._id;
-      const threadDTO = new ThreadMessagesDTO(req.params);
-      const skip = (threadDTO.page - 1) * threadDTO.limit;
-
-      const parentMessage = await Message.findOne({
-        _id: threadDTO.parentMessageId,
-        isDeleted: false
-      });
-
       if (!parentMessage) {
-        return res.status(404).json({
-          success: false,
-          message: 'Parent message not found'
-        });
+        return res.status(404).json(createErrorResponse("message.parentMessageNotFound", null, null, detectLanguage(req)));
       }
 
-      // Check if user has access to the conversation
+      // Check if user has access to the parent message
       const conversation = await Conversation.findOne({
         _id: parentMessage.conversationId,
         participants: userId,
@@ -720,172 +518,207 @@ export class MessageController {
       });
 
       if (!conversation) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied to this conversation'
-        });
+        return res.status(403).json(createErrorResponse("message.unauthorizedAccess", null, null, detectLanguage(req)));
       }
 
-      const messages = await Message.getThreadMessages(threadDTO.parentMessageId, threadDTO.limit, skip);
+      // Create reply message
+      const replyMessage = new Message({
+        conversationId: parentMessage.conversationId,
+        senderId: userId,
+        text: replyDTO.text,
+        type: replyDTO.type || 'text',
+        attachments: replyDTO.attachments,
+        replyTo: parentMessage._id,
+        replyInfo: {
+          messageId: parentMessage._id,
+          text: parentMessage.text || 'Media',
+          senderName: parentMessage.senderId.username,
+          attachmentType: parentMessage.attachments?.[0]?.type
+        },
+        threadInfo: {
+          parentMessageId: parentMessage._id,
+          replyCount: 0,
+          lastReplyAt: new Date(),
+          participants: [userId]
+        },
+        metadata: {
+          clientMessageId: replyDTO.metadata?.clientMessageId,
+          deviceId: replyDTO.metadata?.deviceId,
+          platform: replyDTO.metadata?.platform
+        }
+      });
+
+      await replyMessage.save();
+
+      // Update parent message's thread info
+      await Message.updateOne(
+        { _id: parentMessage._id },
+        { 
+          $inc: { 'threadInfo.replyCount': 1 },
+          $set: { 'threadInfo.lastReplyAt': new Date() },
+          $addToSet: { 'threadInfo.participants': userId }
+        }
+      );
+
+      // Update conversation's last message
+      await conversation.updateLastMessage(replyMessage);
+
+      await replyMessage.populate('senderId', 'username avatarUrl');
+      await replyMessage.populate('replyTo');
+
+      const response = MessageResponseDTO.fromMessage(replyMessage, replyMessage.senderId);
+
+      res.status(201).json(createSuccessResponse("message.messageReplied", response.toJSON(), detectLanguage(req)));
+    } catch (error) {
+      console.error('Reply to message error:', error);
+      res.status(500).json(createErrorResponse("message.replyFailed", error.message, null, detectLanguage(req)));
+    }
+  }
+
+  // Get thread messages
+  static async getThreadMessages(req, res) {
+    try {
+      const { messageId } = req.params;
+      const userId = req.user._id;
+      const { page = 1, limit = 20 } = req.query;
+      const skip = (page - 1) * limit;
+
+      // Find the parent message
+      const parentMessage = await Message.findOne({
+        _id: messageId,
+        isDeleted: false
+      });
+
+      if (!parentMessage) {
+        return res.status(404).json(createErrorResponse("message.parentMessageNotFound", null, null, detectLanguage(req)));
+      }
+
+      // Check if user has access to the parent message
+      const conversation = await Conversation.findOne({
+        _id: parentMessage.conversationId,
+        participants: userId,
+        isActive: true
+      });
+
+      if (!conversation) {
+        return res.status(403).json(createErrorResponse("message.unauthorizedAccess", null, null, detectLanguage(req)));
+      }
+
+      // Get thread messages
+      const threadMessages = await Message.find({
+        replyTo: messageId,
+        isDeleted: false
+      })
+      .populate('senderId', 'username avatarUrl')
+      .populate('replyTo')
+      .sort({ createdAt: 1 })
+      .limit(parseInt(limit))
+      .skip(skip);
 
       const total = await Message.countDocuments({
-        'threadInfo.parentMessageId': threadDTO.parentMessageId,
+        replyTo: messageId,
         isDeleted: false
       });
 
       const pagination = {
-        page: threadDTO.page,
-        limit: threadDTO.limit,
+        page: parseInt(page),
+        limit: parseInt(limit),
         total,
-        pages: Math.ceil(total / threadDTO.limit)
+        pages: Math.ceil(total / limit)
       };
 
-      const response = MessageListResponseDTO.fromMessages(messages, pagination);
+      const response = MessageListResponseDTO.fromMessages(threadMessages, pagination);
 
-      res.json({
-        success: true,
-        message: 'Thread messages retrieved successfully',
-        data: response.toJSON()
-      });
+      res.json(createSuccessResponse("message.threadMessagesRetrieved", response.toJSON(), detectLanguage(req)));
     } catch (error) {
       console.error('Get thread messages error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve thread messages',
-        error: error.message
-      });
+      res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
     }
   }
 
   // Search messages
   static async searchMessages(req, res) {
-    console.log("🚀 ~ MessageController ~ searchMessages ~ req:", req.query)
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation failed',
-          errors: errors.array()
-        });
+        return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
       }
 
+      const searchDTO = new SearchMessagesDTO(req.query);
       const userId = req.user._id;
-      const searchDTO = new SearchMessagesDTO(req.query); // Changed from req.body.query to req.query
-      const skip = (searchDTO.page - 1) * searchDTO.limit;
+      const { page = 1, limit = 20 } = req.query;
+      const skip = (page - 1) * limit;
 
-      // Build search query
-      let query = { isDeleted: false };
+      // Get user's conversations
+      const userConversations = await Conversation.find({
+        participants: userId,
+        isActive: true
+      }).select('_id');
 
-      // Add conversation filter
-      if (searchDTO.conversationId) {
-        query.conversationId = searchDTO.conversationId;
-      } else {
-        // If no specific conversation, get user's conversations
-        const userConversations = await Conversation.find({
-          participants: userId,
-          isActive: true
-        }).select('_id');
-        
-        query.conversationId = { $in: userConversations.map(c => c._id) };
-      }
+      const conversationIds = userConversations.map(conv => conv._id);
 
-      // Add text search
+      let searchQuery = {
+        conversationId: { $in: conversationIds },
+        isDeleted: false
+      };
+
       if (searchDTO.query) {
-        query.text = { $regex: searchDTO.query, $options: 'i' };
+        searchQuery.text = { $regex: searchDTO.query, $options: 'i' };
       }
 
-      // Add type filter
-      if (searchDTO.type) {
-        query.type = searchDTO.type;
+      if (searchDTO.conversationId) {
+        searchQuery.conversationId = searchDTO.conversationId;
       }
 
-      // Add sender filter
       if (searchDTO.senderId) {
-        query.senderId = searchDTO.senderId;
+        searchQuery.senderId = searchDTO.senderId;
       }
 
-      // Add attachment filter
-      if (searchDTO.hasAttachments !== undefined) {
-        if (searchDTO.hasAttachments) {
-          query.attachments = { $exists: true, $ne: [] };
-        } else {
-          query.$or = [
-            { attachments: { $exists: false } },
-            { attachments: { $size: 0 } }
-          ];
-        }
+      if (searchDTO.type) {
+        searchQuery.type = searchDTO.type;
       }
 
-      // Add reaction filter
-      if (searchDTO.hasReactions !== undefined) {
-        if (searchDTO.hasReactions) {
-          query.reactions = { $exists: true, $ne: [] };
-        } else {
-          query.$or = [
-            { reactions: { $exists: false } },
-            { reactions: { $size: 0 } }
-          ];
-        }
-      }
-
-      // Add date range filter
       if (searchDTO.dateFrom || searchDTO.dateTo) {
-        query.createdAt = {};
+        searchQuery.createdAt = {};
         if (searchDTO.dateFrom) {
-          query.createdAt.$gte = new Date(searchDTO.dateFrom);
+          searchQuery.createdAt.$gte = new Date(searchDTO.dateFrom);
         }
         if (searchDTO.dateTo) {
-          query.createdAt.$lte = new Date(searchDTO.dateTo);
+          searchQuery.createdAt.$lte = new Date(searchDTO.dateTo);
         }
       }
 
-      const messages = await Message.find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(searchDTO.limit)
+      const messages = await Message.find(searchQuery)
         .populate('senderId', 'username avatarUrl')
         .populate('conversationId', 'name')
-        .populate('replyTo')
-        .populate('forwardedFrom', 'username avatarUrl');
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .skip(skip);
 
-      const total = await Message.countDocuments(query);
+      const total = await Message.countDocuments(searchQuery);
 
       const pagination = {
-        page: searchDTO.page,
-        limit: searchDTO.limit,
+        page: parseInt(page),
+        limit: parseInt(limit),
         total,
-        pages: Math.ceil(total / searchDTO.limit)
+        pages: Math.ceil(total / limit)
       };
 
       const response = MessageListResponseDTO.fromMessages(messages, pagination);
 
-      res.json({
-        success: true,
-        message: 'Messages found successfully',
-        data: response.toJSON()
-      });
+      res.json(createSuccessResponse("message.searchResults", response.toJSON(), detectLanguage(req)));
     } catch (error) {
       console.error('Search messages error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to search messages',
-        error: error.message
-      });
+      res.status(500).json(createErrorResponse("message.searchFailed", error.message, null, detectLanguage(req)));
     }
   }
 
   // Pin/Unpin message
   static async pinMessage(req, res) {
     try {
-      
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation failed',
-          errors: errors.array()
-        });
+        return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
       }
 
       const { messageId } = req.params;
@@ -898,13 +731,10 @@ export class MessageController {
       });
 
       if (!message) {
-        return res.status(404).json({
-          success: false,
-          message: 'Message not found'
-        });
+        return res.status(404).json(createErrorResponse("message.messageNotFound", null, null, detectLanguage(req)));
       }
 
-      // Check if user has access to the conversation
+      // Check if user has access to this message
       const conversation = await Conversation.findOne({
         _id: message.conversationId,
         participants: userId,
@@ -912,47 +742,32 @@ export class MessageController {
       });
 
       if (!conversation) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied to this conversation'
-        });
+        return res.status(403).json(createErrorResponse("message.unauthorizedAccess", null, null, detectLanguage(req)));
       }
 
-      // Check permissions for pinning
+      // Check if user is admin for group conversations
       if (conversation.isGroup && !conversation.admin.equals(userId)) {
-        if (!conversation.groupSettings.allowMemberPin) {
-          return res.status(403).json({
-            success: false,
-            message: 'You do not have permission to pin messages'
-          });
-        }
+        return res.status(403).json(createErrorResponse("message.unauthorizedAccess", null, null, detectLanguage(req)));
       }
 
-      if (pinDTO.action === 'pin') {
-        await conversation.pinMessage(messageId);
-        message.isPinned = true;
+      if (pinDTO.pinned) {
+        // Pin message
+        await Message.updateOne(
+          { _id: messageId },
+          { $addToSet: { pinnedBy: userId } }
+        );
+        res.json(createSuccessResponse("message.messagePinned", null, detectLanguage(req)));
       } else {
-        await conversation.unpinMessage(messageId);
-        message.isPinned = false;
+        // Unpin message
+        await Message.updateOne(
+          { _id: messageId },
+          { $pull: { pinnedBy: userId } }
+        );
+        res.json(createSuccessResponse("message.messageUnpinned", null, detectLanguage(req)));
       }
-
-      await message.save();
-      await message.populate('senderId', 'username avatarUrl');
-
-      const response = MessageResponseDTO.fromMessage(message, message.senderId);
-
-      res.json({
-        success: true,
-        message: `Message ${pinDTO.action}ned successfully`,
-        data: response.toJSON()
-      });
     } catch (error) {
-      console.error('Pin message error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to pin/unpin message',
-        error: error.message
-      });
+      console.error('Pin/Unpin message error:', error);
+      res.status(500).json(createErrorResponse("message.pinFailed", error.message, null, detectLanguage(req)));
     }
   }
 } 

@@ -3,6 +3,7 @@ import User from "../models/user.model.js";
 import { validationResult } from "express-validator";
 import { CreatePhotoDTO, UpdatePhotoDTO, AddReactionDTO, PhotoResponseDTO, PhotoListResponseDTO, SearchPhotosDTO } from "../dtos/index.js";
 import mongoose from "mongoose";
+import { createSuccessResponse, createErrorResponse, createValidationErrorResponse, detectLanguage } from "../utils/translations.js";
 
 export class PhotoController {
 	// Get all photos (with pagination and filtering)
@@ -70,10 +71,10 @@ export class PhotoController {
 			};
 
 			const photoListResponse = PhotoListResponseDTO.fromPhotos(photos, pagination);
-			res.json(photoListResponse.toJSON());
+			res.json(createSuccessResponse("photo.photosRetrieved", photoListResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Error fetching photos (cursor-based):", error);
-			res.status(500).json({ message: "Internal server error" });
+			res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -85,20 +86,20 @@ export class PhotoController {
 			const photo = await Photo.findById(photoId).populate("userId", "username avatarUrl").populate("sharedWith", "username avatarUrl");
 
 			if (!photo) {
-				return res.status(404).json({ message: "Photo not found" });
+				return res.status(404).json(createErrorResponse("photo.photoNotFound", null, null, detectLanguage(req)));
 			}
 
 			const hasAccess = photo.userId._id.equals(req.user._id) || photo.sharedWith.some((user) => user._id.equals(req.user._id));
 
 			if (!hasAccess) {
-				return res.status(403).json({ message: "Access denied" });
+				return res.status(403).json(createErrorResponse("photo.unauthorizedPhotoAccess", null, null, detectLanguage(req)));
 			}
 
 			const photoResponse = PhotoResponseDTO.fromPhoto(photo);
-			res.json(photoResponse.toJSON());
+			res.json(createSuccessResponse("photo.photoRetrieved", photoResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Error fetching photo:", error);
-			res.status(500).json({ message: "Internal server error" });
+			res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -107,30 +108,24 @@ export class PhotoController {
 		try {
 			const errors = validationResult(req);
 			if (!errors.isEmpty()) {
-				return res.status(400).json({
-					message: "Validation failed",
-					errors: errors.array(),
-				});
+				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
 			}
 
-			const createData = new CreatePhotoDTO(req.body);
-			const { imageUrl, caption, sharedWith, location } = createData;
-
-			const photo = await Photo.create({
+			const photoData = new CreatePhotoDTO(req.body);
+			const photo = new Photo({
+				...photoData,
 				userId: req.user._id,
-				imageUrl,
-				caption,
-				sharedWith,
-				location,
 			});
+
+			await photo.save();
 
 			const populatedPhoto = await Photo.findById(photo._id).populate("userId", "username avatarUrl").populate("sharedWith", "username avatarUrl");
 
 			const photoResponse = PhotoResponseDTO.fromPhoto(populatedPhoto);
-			res.status(201).json(photoResponse.toJSON());
+			res.status(201).json(createSuccessResponse("photo.photoCreated", photoResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Error creating photo:", error);
-			res.status(500).json({ message: "Internal server error" });
+			res.status(500).json(createErrorResponse("photo.photoCreationFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -139,34 +134,28 @@ export class PhotoController {
 		try {
 			const errors = validationResult(req);
 			if (!errors.isEmpty()) {
-				return res.status(400).json({
-					message: "Validation failed",
-					errors: errors.array(),
-				});
+				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
 			}
 
 			const { photoId } = req.params;
 			const updateData = new UpdatePhotoDTO(req.body);
-			const updateFields = updateData.toUpdateData();
 
 			const photo = await Photo.findById(photoId);
 			if (!photo) {
-				return res.status(404).json({ message: "Photo not found" });
+				return res.status(404).json(createErrorResponse("photo.photoNotFound", null, null, detectLanguage(req)));
 			}
 
 			if (!photo.userId.equals(req.user._id)) {
-				return res.status(403).json({ message: "Access denied" });
+				return res.status(403).json(createErrorResponse("photo.unauthorizedPhotoAccess", null, null, detectLanguage(req)));
 			}
 
-			const updatedPhoto = await Photo.findByIdAndUpdate(photoId, updateFields, { new: true, runValidators: true })
-				.populate("userId", "username avatarUrl")
-				.populate("sharedWith", "username avatarUrl");
+			const updatedPhoto = await Photo.findByIdAndUpdate(photoId, updateData, { new: true, runValidators: true }).populate("userId", "username avatarUrl").populate("sharedWith", "username avatarUrl");
 
 			const photoResponse = PhotoResponseDTO.fromPhoto(updatedPhoto);
-			res.json(photoResponse.toJSON());
+			res.json(createSuccessResponse("photo.photoUpdated", photoResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Error updating photo:", error);
-			res.status(500).json({ message: "Internal server error" });
+			res.status(500).json(createErrorResponse("photo.photoUpdateFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -177,103 +166,104 @@ export class PhotoController {
 
 			const photo = await Photo.findById(photoId);
 			if (!photo) {
-				return res.status(404).json({ message: "Photo not found" });
+				return res.status(404).json(createErrorResponse("photo.photoNotFound", null, null, detectLanguage(req)));
 			}
 
 			if (!photo.userId.equals(req.user._id)) {
-				return res.status(403).json({ message: "Access denied" });
+				return res.status(403).json(createErrorResponse("photo.unauthorizedPhotoAccess", null, null, detectLanguage(req)));
 			}
 
 			await Photo.findByIdAndDelete(photoId);
-			res.json({ message: "Photo deleted successfully" });
+			res.json(createSuccessResponse("photo.photoDeleted", null, detectLanguage(req)));
 		} catch (error) {
 			console.error("Error deleting photo:", error);
-			res.status(500).json({ message: "Internal server error" });
+			res.status(500).json(createErrorResponse("photo.photoDeleteFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
-	// Add reaction to a photo
+	// Add reaction to photo
 	static async addReaction(req, res) {
 		try {
 			const errors = validationResult(req);
 			if (!errors.isEmpty()) {
-				return res.status(400).json({
-					message: "Validation failed",
-					errors: errors.array(),
-				});
+				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
 			}
 
 			const { photoId } = req.params;
 			const reactionData = new AddReactionDTO(req.body);
-			const { reactionType: type } = reactionData;
 
 			const photo = await Photo.findById(photoId);
 			if (!photo) {
-				return res.status(404).json({ message: "Photo not found" });
+				return res.status(404).json(createErrorResponse("photo.photoNotFound", null, null, detectLanguage(req)));
 			}
 
+			// Check if user has access to the photo
 			const hasAccess = photo.userId.equals(req.user._id) || photo.sharedWith.some((userId) => userId.equals(req.user._id));
-
 			if (!hasAccess) {
-				return res.status(403).json({ message: "Access denied" });
+				return res.status(403).json(createErrorResponse("photo.unauthorizedPhotoAccess", null, null, detectLanguage(req)));
 			}
 
-			const existingReaction = photo.reactions.find((reaction) => reaction.userId.equals(req.user._id));
+			// Check if reaction already exists
+			const existingReaction = photo.reactions.find((reaction) => reaction.userId.equals(req.user._id) && reaction.type === reactionData.type);
 
 			if (existingReaction) {
-				existingReaction.type = type;
-				existingReaction.createdAt = new Date();
-			} else {
-				photo.reactions.push({
-					userId: req.user._id,
-					type,
-					createdAt: new Date(),
-				});
+				return res.status(400).json(createErrorResponse("photo.reactionFailed", "Reaction already exists", null, detectLanguage(req)));
 			}
+
+			photo.reactions.push({
+				userId: req.user._id,
+				type: reactionData.type,
+			});
 
 			await photo.save();
 
 			const updatedPhoto = await Photo.findById(photoId).populate("userId", "username avatarUrl").populate("sharedWith", "username avatarUrl");
 
 			const photoResponse = PhotoResponseDTO.fromPhoto(updatedPhoto);
-			res.json(photoResponse.toJSON());
+			res.json(createSuccessResponse("photo.reactionAdded", photoResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Error adding reaction:", error);
-			res.status(500).json({ message: "Internal server error" });
+			res.status(500).json(createErrorResponse("photo.reactionFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
-	// Remove reaction from a photo
+	// Remove reaction from photo
 	static async removeReaction(req, res) {
 		try {
-			const { photoId } = req.params;
+			const { photoId, reactionType } = req.params;
 
 			const photo = await Photo.findById(photoId);
 			if (!photo) {
-				return res.status(404).json({ message: "Photo not found" });
+				return res.status(404).json(createErrorResponse("photo.photoNotFound", null, null, detectLanguage(req)));
 			}
 
+			// Check if user has access to the photo
 			const hasAccess = photo.userId.equals(req.user._id) || photo.sharedWith.some((userId) => userId.equals(req.user._id));
-
 			if (!hasAccess) {
-				return res.status(403).json({ message: "Access denied" });
+				return res.status(403).json(createErrorResponse("photo.unauthorizedPhotoAccess", null, null, detectLanguage(req)));
 			}
 
-			photo.reactions = photo.reactions.filter((reaction) => !reaction.userId.equals(req.user._id));
+			// Find and remove the reaction
+			const reactionIndex = photo.reactions.findIndex((reaction) => reaction.userId.equals(req.user._id) && reaction.type === reactionType);
 
+			if (reactionIndex === -1) {
+				return res.status(404).json(createErrorResponse("photo.reactionFailed", "Reaction not found", null, detectLanguage(req)));
+			}
+
+			photo.reactions.splice(reactionIndex, 1);
 			await photo.save();
 
 			const updatedPhoto = await Photo.findById(photoId).populate("userId", "username avatarUrl").populate("sharedWith", "username avatarUrl");
 
 			const photoResponse = PhotoResponseDTO.fromPhoto(updatedPhoto);
-			res.json(photoResponse.toJSON());
+			res.json(createSuccessResponse("photo.reactionRemoved", photoResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Error removing reaction:", error);
-			res.status(500).json({ message: "Internal server error" });
+			res.status(500).json(createErrorResponse("photo.reactionFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
-	// Get user's photos
+	// Get user photos
 	static async getUserPhotos(req, res) {
 		try {
 			const { userId } = req.params;
@@ -283,25 +273,17 @@ export class PhotoController {
 			// Check if user exists
 			const user = await User.findById(userId);
 			if (!user) {
-				return res.status(404).json({ message: "User not found" });
+				return res.status(404).json(createErrorResponse("user.userNotFound", null, null, detectLanguage(req)));
 			}
 
-			// Build query based on relationship
 			let searchQuery = { userId };
-
 			// If viewing own photos, show all
 			// If viewing someone else's photos, only show shared ones
 			if (userId !== req.user._id.toString()) {
 				searchQuery.sharedWith = req.user._id;
 			}
 
-			const photos = await Photo.find(searchQuery)
-				.populate("userId", "username avatarUrl")
-				.populate("sharedWith", "username avatarUrl")
-				.populate("reactions.userId", "username avatarUrl")
-				.sort({ createdAt: -1 })
-				.limit(parseInt(limit))
-				.skip(skip);
+			const photos = await Photo.find(searchQuery).populate("userId", "username avatarUrl").populate("sharedWith", "username avatarUrl").sort({ createdAt: -1 }).limit(parseInt(limit)).skip(skip);
 
 			const total = await Photo.countDocuments(searchQuery);
 			const totalPages = Math.ceil(total / limit);
@@ -315,10 +297,10 @@ export class PhotoController {
 			};
 
 			const photoListResponse = PhotoListResponseDTO.fromPhotos(photos, pagination);
-			res.json(photoListResponse.toJSON());
+			res.json(createSuccessResponse("photo.photosRetrieved", photoListResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Error fetching user photos:", error);
-			res.status(500).json({ message: "Internal server error" });
+			res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
 		}
 	}
 }

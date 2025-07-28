@@ -2,6 +2,7 @@ import { validationResult } from "express-validator";
 import { PhotoResponseDTO } from "../dtos/index.js";
 import Photo from "../models/photo.model.js";
 import CloudinaryService from "../utils/cloudinaryService.js";
+import { createSuccessResponse, createErrorResponse, createValidationErrorResponse, detectLanguage } from "../utils/translations.js";
 
 export class PhotoUploadController {
 
@@ -10,10 +11,7 @@ export class PhotoUploadController {
 		try {
 			const errors = validationResult(req);
 			if (!errors.isEmpty()) {
-				return res.status(400).json({
-					message: "Validation failed",
-					errors: errors.array(),
-				});
+				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
 			}
 
 			const { caption, sharedWith, location, imageData } = req.body;
@@ -36,9 +34,7 @@ export class PhotoUploadController {
 					public_id: `photo_${Date.now()}_${req.user._id}`,
 				});
 			} else {
-				return res.status(400).json({
-					message: "No image provided. Please upload a file or provide imageData.",
-				});
+				return res.status(400).json(createErrorResponse("upload.noFileProvided", null, null, detectLanguage(req)));
 			}
 
 			// Create photo record in database
@@ -58,8 +54,7 @@ export class PhotoUploadController {
 
 			const photoResponse = PhotoResponseDTO.fromPhoto(populatedPhoto);
 
-			res.status(201).json({
-				message: "Photo uploaded successfully",
+			res.status(201).json(createSuccessResponse("upload.fileUploaded", {
 				photo: photoResponse.toJSON(),
 				cloudinary: {
 					publicId: cloudinaryResult.public_id,
@@ -69,13 +64,10 @@ export class PhotoUploadController {
 					format: cloudinaryResult.format,
 					size: cloudinaryResult.bytes,
 				},
-			});
+			}, detectLanguage(req)));
 		} catch (error) {
 			console.error("Photo upload error:", error);
-			res.status(500).json({
-				message: "Failed to upload photo",
-				error: error.message,
-			});
+			res.status(500).json(createErrorResponse("upload.uploadFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -85,15 +77,11 @@ export class PhotoUploadController {
 			const { photos } = req.body; // Array of photo objects with imageData
 
 			if (!Array.isArray(photos) || photos.length === 0) {
-				return res.status(400).json({
-					message: "No photos provided or invalid format",
-				});
+				return res.status(400).json(createErrorResponse("upload.noFileProvided", null, null, detectLanguage(req)));
 			}
 
 			if (photos.length > 10) {
-				return res.status(400).json({
-					message: "Maximum 10 photos allowed per request",
-				});
+				return res.status(400).json(createErrorResponse("upload.maxFilesExceeded", null, null, detectLanguage(req)));
 			}
 
 			const uploadedPhotos = [];
@@ -141,103 +129,72 @@ export class PhotoUploadController {
 				}
 			}
 
-			res.status(201).json({
-				message: `${uploadedPhotos.length} photos uploaded successfully`,
+			res.status(201).json(createSuccessResponse("upload.multipleFilesUploaded", {
 				photos: uploadedPhotos,
 				total: uploadedPhotos.length,
-			});
+			}, detectLanguage(req)));
 		} catch (error) {
 			console.error("Multiple photo upload error:", error);
-			res.status(500).json({
-				message: "Failed to upload photos",
-				error: error.message,
-			});
+			res.status(500).json(createErrorResponse("upload.uploadFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
-  // Delete photo
+	// Delete photo with cloudinary
 	static async deletePhotoWithCloudinary(req, res) {
 		try {
 			const { photoId } = req.params;
 
 			const photo = await Photo.findById(photoId);
 			if (!photo) {
-				return res.status(404).json({ message: "Photo not found" });
+				return res.status(404).json(createErrorResponse("photo.photoNotFound", null, null, detectLanguage(req)));
 			}
 
 			if (!photo.userId.equals(req.user._id)) {
-				return res.status(403).json({ message: "Access denied" });
+				return res.status(403).json(createErrorResponse("photo.unauthorizedPhotoAccess", null, null, detectLanguage(req)));
 			}
 
-			// Delete from Cloudinary if it's a Cloudinary URL
-			if (photo.publicId && CloudinaryService.isCloudinaryUrl(photo.imageUrl)) {
-				try {
-					await CloudinaryService.deleteImage(photo.publicId);
-				} catch (cloudinaryError) {
-					console.error("Cloudinary delete error:", cloudinaryError);
-					// Continue with database deletion even if Cloudinary fails
-				}
+			// Delete from Cloudinary
+			if (photo.publicId) {
+				await CloudinaryService.deleteImage(photo.publicId);
 			}
 
 			// Delete from database
 			await Photo.findByIdAndDelete(photoId);
 
-			res.json({
-				message: "Photo deleted successfully",
-				deletedPhoto: {
-					id: photo._id,
-					publicId: photo.publicId,
-					imageUrl: photo.imageUrl,
-				},
-			});
+			res.json(createSuccessResponse("photo.photoDeleted", null, detectLanguage(req)));
 		} catch (error) {
-			console.error("Photo deletion error:", error);
-			res.status(500).json({
-				message: "Failed to delete photo",
-				error: error.message,
-			});
+			console.error("Delete photo with cloudinary error:", error);
+			res.status(500).json(createErrorResponse("photo.photoDeleteFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
-  // Get all url photo
+	// Get image URLs
 	static async getImageUrls(req, res) {
 		try {
-			const { photoId } = req.params;
+			const { photoIds } = req.body;
 
-			const photo = await Photo.findById(photoId);
-			if (!photo) {
-				return res.status(404).json({ message: "Photo not found" });
+			if (!Array.isArray(photoIds)) {
+				return res.status(400).json(createErrorResponse("validation.invalidArray", null, null, detectLanguage(req)));
 			}
 
-			// Check access
-			const hasAccess = photo.userId.equals(req.user._id) || photo.sharedWith.some((userId) => userId.equals(req.user._id));
+			const photos = await Photo.find({
+				_id: { $in: photoIds },
+				$or: [
+					{ userId: req.user._id },
+					{ sharedWith: req.user._id }
+				]
+			}).select('imageUrl publicId');
 
-			if (!hasAccess) {
-				return res.status(403).json({ message: "Access denied" });
-			}
+			const imageUrls = photos.map(photo => ({
+				id: photo._id,
+				url: photo.imageUrl,
+				publicId: photo.publicId
+			}));
 
-			// Generate responsive URLs if it's a Cloudinary image
-			let imageUrls = null;
-			if (photo.publicId && CloudinaryService.isCloudinaryUrl(photo.imageUrl)) {
-				imageUrls = CloudinaryService.getResponsiveUrls(photo.publicId);
-			}
-
-			res.json({
-				photo: {
-					id: photo._id,
-					imageUrl: photo.imageUrl,
-					publicId: photo.publicId,
-					caption: photo.caption,
-				},
-				responsiveUrls: imageUrls,
-				isCloudinaryImage: CloudinaryService.isCloudinaryUrl(photo.imageUrl),
-			});
+			res.json(createSuccessResponse("photo.photosRetrieved", { imageUrls }, detectLanguage(req)));
 		} catch (error) {
 			console.error("Get image URLs error:", error);
-			res.status(500).json({
-				message: "Failed to get image URLs",
-				error: error.message,
-			});
+			res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
 		}
 	}
 }

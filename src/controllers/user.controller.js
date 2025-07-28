@@ -1,20 +1,21 @@
 import { validationResult } from "express-validator";
 import { UpdateProfileDTO, UserListDTO, UserProfileResponseDTO } from "../dtos/index.js";
 import User from "../models/user.model.js";
+import { createSuccessResponse, createErrorResponse, createValidationErrorResponse, detectLanguage } from "../utils/translations.js";
 
 export class UserController {
 	static async getProfile(req, res) {
 		try {
 			const user = await User.findById(req.user._id).select("-passwordHash");
 			if (!user) {
-				return res.status(404).json({ message: "User not found" });
+				return res.status(404).json(createErrorResponse("user.userNotFound", null, null, detectLanguage(req)));
 			}
 
 			const profileResponse = UserProfileResponseDTO.fromUser(user);
-			res.json(profileResponse.toJSON());
+			res.json(createSuccessResponse("user.userRetrieved", profileResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Error fetching user profile:", error);
-			res.status(500).json({ message: "Internal server error" });
+			res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -22,10 +23,7 @@ export class UserController {
 		try {
 			const errors = validationResult(req);
 			if (!errors.isEmpty()) {
-				return res.status(400).json({
-					message: "Validation failed",
-					errors: errors.array(),
-				});
+				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
 			}
 
 			const updateData = new UpdateProfileDTO(req.body);
@@ -39,7 +37,7 @@ export class UserController {
 					_id: { $ne: req.user._id },
 				});
 				if (existingUser) {
-					return res.status(400).json({ message: "Email already in use" });
+					return res.status(400).json(createErrorResponse("auth.userExists", null, null, detectLanguage(req)));
 				}
 			}
 
@@ -49,24 +47,21 @@ export class UserController {
 					_id: { $ne: req.user._id },
 				});
 				if (existingUser) {
-					return res.status(400).json({ message: "Phone number already in use" });
+					return res.status(400).json(createErrorResponse("auth.userExists", null, null, detectLanguage(req)));
 				}
 			}
 
 			const updatedUser = await User.findByIdAndUpdate(req.user._id, updateFields, { new: true, runValidators: true }).select("-passwordHash");
 
 			if (!updatedUser) {
-				return res.status(404).json({ message: "User not found" });
+				return res.status(404).json(createErrorResponse("user.userNotFound", null, null, detectLanguage(req)));
 			}
 
 			const profileResponse = UserProfileResponseDTO.fromUser(updatedUser);
-			res.json({
-				message: "Profile updated successfully",
-				...profileResponse.toJSON(),
-			});
+			res.json(createSuccessResponse("user.profileUpdated", profileResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Error updating user profile:", error);
-			res.status(500).json({ message: "Internal server error" });
+			res.status(500).json(createErrorResponse("user.profileUpdateFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -74,13 +69,13 @@ export class UserController {
 		try {
 			const user = await User.findByIdAndDelete(req.user._id);
 			if (!user) {
-				return res.status(404).json({ message: "User not found" });
+				return res.status(404).json(createErrorResponse("user.userNotFound", null, null, detectLanguage(req)));
 			}
 
-			res.json({ message: "Account deleted successfully" });
+			res.json(createSuccessResponse("user.userDeleted", null, detectLanguage(req)));
 		} catch (error) {
 			console.error("Error deleting user account:", error);
-			res.status(500).json({ message: "Internal server error" });
+			res.status(500).json(createErrorResponse("user.userDeleteFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 
@@ -113,10 +108,10 @@ export class UserController {
 			};
 
 			const userListResponse = UserListDTO.fromUsers(users, pagination);
-			res.json(userListResponse.toJSON());
+			res.json(createSuccessResponse("user.searchResults", userListResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Error searching users:", error);
-			res.status(500).json({ message: "Internal server error" });
+			res.status(500).json(createErrorResponse("user.searchFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 }
