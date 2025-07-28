@@ -4,21 +4,22 @@ export const TRANSLATIONS = {
   en: {
     // Auth Messages
     auth: {
-      userExists: "User already exists.",
-      userNotFound: "User not found.",
-      invalidCredentials: "Invalid credentials.",
       registrationSuccess: "Registration successful",
-      registrationFailed: "Registration failed",
       loginSuccess: "Login successful",
-      loginFailed: "Login failed",
       tokenRefreshed: "Token refreshed successfully",
+      userExists: "User already exists",
+      userNotFound: "User not found",
+      invalidCredentials: "Invalid credentials",
+      registrationFailed: "Registration failed",
+      loginFailed: "Login failed",
+      missingToken: "Missing or invalid token",
+      tokenExpired: "Token has expired",
+      invalidToken: "Invalid token format",
+      tokenVerificationFailed: "Token verification failed",
       missingRefreshToken: "Missing refresh token",
       invalidRefreshToken: "Invalid refresh token",
-      logoutSuccess: "Logged out successfully",
+      logoutSuccess: "Logout successful",
       logoutFailed: "Logout failed",
-      missingToken: "Missing or invalid token",
-      tokenExpired: "Invalid or expired token",
-      userNotFoundInToken: "User not found"
     },
 
     // User Messages
@@ -166,21 +167,22 @@ export const TRANSLATIONS = {
   vi: {
     // Auth Messages
     auth: {
-      userExists: "Người dùng đã tồn tại.",
-      userNotFound: "Không tìm thấy người dùng.",
-      invalidCredentials: "Thông tin đăng nhập không chính xác.",
       registrationSuccess: "Đăng ký thành công",
-      registrationFailed: "Đăng ký thất bại",
       loginSuccess: "Đăng nhập thành công",
-      loginFailed: "Đăng nhập thất bại",
       tokenRefreshed: "Làm mới token thành công",
-      missingRefreshToken: "Thiếu token làm mới",
-      invalidRefreshToken: "Token làm mới không hợp lệ",
+      userExists: "Người dùng đã tồn tại",
+      userNotFound: "Không tìm thấy người dùng",
+      invalidCredentials: "Thông tin đăng nhập không đúng",
+      registrationFailed: "Đăng ký thất bại",
+      loginFailed: "Đăng nhập thất bại",
+      missingToken: "Thiếu hoặc token không hợp lệ",
+      tokenExpired: "Token đã hết hạn",
+      invalidToken: "Định dạng token không hợp lệ",
+      tokenVerificationFailed: "Xác thực token thất bại",
+      missingRefreshToken: "Thiếu refresh token",
+      invalidRefreshToken: "Refresh token không hợp lệ",
       logoutSuccess: "Đăng xuất thành công",
       logoutFailed: "Đăng xuất thất bại",
-      missingToken: "Thiếu hoặc token không hợp lệ",
-      tokenExpired: "Token không hợp lệ hoặc đã hết hạn",
-      userNotFoundInToken: "Không tìm thấy người dùng"
     },
 
     // User Messages
