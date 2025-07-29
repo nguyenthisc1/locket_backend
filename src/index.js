@@ -12,6 +12,8 @@ import messageRoutes from "./routes/message.routes.js";
 import photoRoutes from "./routes/photo.routes.js";
 import photoUploadRoutes from "./routes/photoUpload.routes.js";
 import userRoutes from "./routes/user.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
+
 
 dotenv.config();
 validateEnv();
@@ -47,6 +49,7 @@ app.use(`/${API_VERSION}/photo`, photoRoutes);
 app.use(`/${API_VERSION}/upload`, photoUploadRoutes);
 app.use(`/${API_VERSION}/conversation`, conversationRoutes);
 app.use(`/${API_VERSION}/message`, messageRoutes);
+app.use(`/${API_VERSION}/notifications`, notificationRoutes);
 
 // Health check route
 app.get("/", (req, res) => {

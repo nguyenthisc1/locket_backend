@@ -1,7 +1,7 @@
 import { validationResult } from "express-validator";
 import { PhotoResponseDTO } from "../dtos/index.js";
 import Photo from "../models/photo.model.js";
-import CloudinaryService from "../utils/cloudinaryService.js";
+import CloudinaryService from "../services/cloudinary.service.js";
 import { createSuccessResponse, createErrorResponse, createValidationErrorResponse, detectLanguage } from "../utils/translations.js";
 
 export class PhotoUploadController {
