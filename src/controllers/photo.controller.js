@@ -47,19 +47,40 @@ export class PhotoController {
 	// Get photos for feed (with cursor-based pagination)
 	static async getPhotos(req, res) {
 		try {
-			const { query, userId, sharedWithMe, limit = 10, lastCreatedAt } = req.query;
+			const { query, limit = 10, lastCreatedAt } = req.query;
 			const parsedLimit = parseInt(limit);
 
-			let searchQuery = {};
+			// Get current user with friends
+			const currentUser = await User.findById(req.user._id).populate('friends', '_id');
+			if (!currentUser) {
+				return res.status(404).json(createErrorResponse("user.userNotFound", null, null, detectLanguage(req)));
+			}
 
-			if (userId) searchQuery.userId = userId;
-			if (sharedWithMe === "true") searchQuery.sharedWith = req.user._id;
-			if (query) searchQuery.caption = { $regex: query, $options: "i" };
+			// Create array of user IDs including current user and friends
+			const userIds = [req.user._id, ...currentUser.friends.map(friend => friend._id)];
+
+			let searchQuery = {
+				$or: [
+					{ userId: { $in: userIds } }, // Photos from user and friends
+					{ sharedWith: req.user._id }  // Photos shared with current user
+				]
+			};
+
+			// Add caption search if provided
+			if (query) {
+				searchQuery.caption = { $regex: query, $options: "i" };
+			}
+
+			// Add cursor-based pagination
 			if (lastCreatedAt) {
 				searchQuery.createdAt = { $lt: new Date(lastCreatedAt) };
 			}
 
-			const photos = await Photo.find(searchQuery).populate("userId", "username avatarUrl").populate("sharedWith", "username avatarUrl").sort({ createdAt: -1 }).limit(parsedLimit);
+			const photos = await Photo.find(searchQuery)
+				.populate("userId", "username avatarUrl")
+				.populate("sharedWith", "username avatarUrl")
+				.sort({ createdAt: -1 })
+				.limit(parsedLimit);
 
 			const hasNextPage = photos.length === parsedLimit;
 			const nextCursor = hasNextPage ? photos[photos.length - 1].createdAt : null;
