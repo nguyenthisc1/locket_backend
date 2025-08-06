@@ -1,16 +1,15 @@
 import { validationResult } from 'express-validator';
-import Notification from '../models/notification.model.js';
-import User from '../models/user.model.js';
-import { 
-	NotificationResponseDTO, 
-	NotificationListResponseDTO, 
-	MarkAsReadDTO 
+import {
+	MarkAsReadDTO,
+	NotificationListResponseDTO,
+	NotificationResponseDTO
 } from '../dtos/notification.dto.js';
-import { 
-	createSuccessResponse, 
-	createErrorResponse, 
-	createValidationErrorResponse, 
-	detectLanguage 
+import Notification from '../models/notification.model.js';
+import {
+	createErrorResponse,
+	createSuccessResponse,
+	createValidationErrorResponse,
+	detectLanguage
 } from '../utils/translations.js';
 
 export class NotificationController {

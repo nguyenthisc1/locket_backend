@@ -17,4 +17,10 @@ export {
   PhotoResponseDTO,
   PhotoListResponseDTO,
   SearchPhotosDTO
-} from './photo.dto.js'; 
+} from './photo.dto.js';
+
+export {
+  FriendRequestDTO,
+  FriendStatusDTO,
+  FriendResponseDTO
+} from './friend.dto.js'; 

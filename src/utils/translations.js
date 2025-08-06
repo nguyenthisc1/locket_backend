@@ -164,6 +164,33 @@ export const TRANSLATIONS = {
 			maxFilesExceeded: "Maximum number of files exceeded",
 		},
 
+		// Friend Messages
+		friend: {
+			requestSent: "Friend request sent successfully",
+			requestAccepted: "Friend request accepted",
+			requestRejected: "Friend request rejected",
+			requestNotFound: "Friend request not found",
+			requestPending: "Friend request is already pending",
+			alreadyFriends: "You are already friends",
+			friendRemoved: "Friend removed successfully",
+			friendsRetrieved: "Friends list retrieved successfully",
+			requestsRetrieved: "Friend requests retrieved successfully",
+			mutualFriendsRetrieved: "Mutual friends retrieved successfully",
+			userBlocked: "User blocked successfully",
+			userUnblocked: "User unblocked successfully",
+			cannotAddSelf: "Cannot add yourself as friend",
+			cannotBlockSelf: "Cannot block yourself",
+			friendshipNotFound: "Friendship not found",
+			userBlocked: "User is blocked",
+			blockFailed: "Failed to block/unblock user",
+			requestFailed: "Failed to send friend request",
+			responseFailed: "Failed to respond to friend request",
+			removeFailed: "Failed to remove friend",
+			friendsGetFailed: "Failed to get friends list",
+			requestsGetFailed: "Failed to get friend requests",
+			mutualFriendsFailed: "Failed to get mutual friends",
+		},
+
 		// Validation Messages
 		validation: {
 			required: "This field is required",
@@ -177,6 +204,13 @@ export const TRANSLATIONS = {
 			invalidArray: "Invalid array format",
 			invalidObject: "Invalid object format",
 			validationError: "Validation error",
+			cannotAddSelf: "Cannot add yourself as friend",
+			cannotBlockSelf: "Cannot block yourself",
+			alreadyFriends: "You are already friends",
+			requestPending: "Friend request is already pending",
+			userBlocked: "User is blocked",
+			requestNotFound: "Friend request not found",
+			friendshipNotFound: "Friendship not found",
 		},
 
 		// General Messages
@@ -357,6 +391,33 @@ export const TRANSLATIONS = {
 			maxFilesExceeded: "Vượt quá số lượng tệp tối đa",
 		},
 
+		// Friend Messages
+		friend: {
+			requestSent: "Gửi lời mời kết bạn thành công",
+			requestAccepted: "Chấp nhận lời mời kết bạn",
+			requestRejected: "Từ chối lời mời kết bạn",
+			requestNotFound: "Không tìm thấy lời mời kết bạn",
+			requestPending: "Lời mời kết bạn đang chờ xử lý",
+			alreadyFriends: "Đã là bạn bè",
+			friendRemoved: "Xóa bạn bè thành công",
+			friendsRetrieved: "Lấy danh sách bạn bè thành công",
+			requestsRetrieved: "Lấy danh sách lời mời kết bạn thành công",
+			mutualFriendsRetrieved: "Lấy danh sách bạn chung thành công",
+			userBlocked: "Chặn người dùng thành công",
+			userUnblocked: "Bỏ chặn người dùng thành công",
+			cannotAddSelf: "Không thể kết bạn với chính mình",
+			cannotBlockSelf: "Không thể chặn chính mình",
+			friendshipNotFound: "Không tìm thấy mối quan hệ bạn bè",
+			userBlocked: "Người dùng đã bị chặn",
+			blockFailed: "Chặn/bỏ chặn người dùng thất bại",
+			requestFailed: "Gửi lời mời kết bạn thất bại",
+			responseFailed: "Phản hồi lời mời kết bạn thất bại",
+			removeFailed: "Xóa bạn bè thất bại",
+			friendsGetFailed: "Lấy danh sách bạn bè thất bại",
+			requestsGetFailed: "Lấy danh sách lời mời kết bạn thất bại",
+			mutualFriendsFailed: "Lấy danh sách bạn chung thất bại",
+		},
+
 		// Validation Messages
 		validation: {
 			required: "Trường này là bắt buộc",
@@ -370,6 +431,13 @@ export const TRANSLATIONS = {
 			invalidArray: "Định dạng mảng không hợp lệ",
 			invalidObject: "Định dạng đối tượng không hợp lệ",
 			validationError: "Lỗi xác thực",
+			cannotAddSelf: "Không thể kết bạn với chính mình",
+			cannotBlockSelf: "Không thể chặn chính mình",
+			alreadyFriends: "Đã là bạn bè",
+			requestPending: "Lời mời kết bạn đang chờ xử lý",
+			userBlocked: "Người dùng đã bị chặn",
+			requestNotFound: "Không tìm thấy lời mời kết bạn",
+			friendshipNotFound: "Không tìm thấy mối quan hệ bạn bè",
 		},
 
 		// General Messages
