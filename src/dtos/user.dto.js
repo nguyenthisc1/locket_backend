@@ -38,6 +38,7 @@ export class RegisterUserDTO {
     this.email = data.email;
     this.phoneNumber = data.phoneNumber;
     this.password = data.password;
+    this.avatarData = data.avatarData; // Base64 image data for avatar
   }
 
   static validationRules() {

@@ -24,13 +24,13 @@ export class PhotoUploadController {
 			if (req.file) {
 				// File upload via multer
 				cloudinaryResult = await CloudinaryService.uploadImage(req.file.buffer, {
-					folder: `locket-photos/${req.user._id}`,
+					folder: `locket-users/${req.user._id}/photos`,
 					public_id: `photo_${Date.now()}_${req.user._id}`,
 				});
 			} else if (imageData) {
 				// Base64 image data from Flutter
 				cloudinaryResult = await CloudinaryService.uploadImage(imageData, {
-					folder: `locket-photos/${req.user._id}`,
+					folder: `locket-users/${req.user._id}/photos`,
 					public_id: `photo_${Date.now()}_${req.user._id}`,
 				});
 			} else {
@@ -96,7 +96,7 @@ export class PhotoUploadController {
 				try {
 					// Upload to Cloudinary
 					const cloudinaryResult = await CloudinaryService.uploadImage(imageData, {
-						folder: `locket-photos/${req.user._id}`,
+						folder: `locket-users/${req.user._id}/photos`,
 						public_id: `photo_${Date.now()}_${req.user._id}_${Math.random().toString(36).substr(2, 9)}`,
 					});
 

@@ -10,6 +10,7 @@ router.use(authMiddleware);
 
 router.get("/", UserController.getProfile);
 router.put("/", UpdateProfileDTO.validationRules(), UserController.updateProfile);
+router.put("/avatar", UserController.updateAvatar);
 router.delete("/:userId", UserController.deleteAccount);
 router.get("/search", UserController.searchUsers);
 
