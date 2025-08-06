@@ -1,6 +1,7 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
 import connectDB from "./config/db.js";
 import swaggerSpec from "./docs/swagger.js";
@@ -31,6 +32,7 @@ app.use(
 );
 app.use(express.json({ limit: "50mb" })); // Increased limit for image uploads
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(cookieParser()); // Enable cookie parsing
 // app.use(cors({
 // 	origin: `http://localhost:${PORT}`, 
 // 	credentials: true
