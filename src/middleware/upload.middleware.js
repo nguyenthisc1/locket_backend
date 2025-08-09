@@ -4,17 +4,20 @@ import path from 'path';
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
 
-// File filter function
+// File filter function for images and videos
 const fileFilter = (req, file, cb) => {
-  // Check file type
-  const allowedTypes = /jpeg|jpg|png|gif|webp/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
+  // Check file type - support both images and videos
+  const allowedImageTypes = /jpeg|jpg|png|gif|webp/;
+  const allowedVideoTypes = /mp4|mov|avi|mkv|webm|m4v/;
+  
+  const extname = path.extname(file.originalname).toLowerCase();
+  const isImageType = allowedImageTypes.test(extname) && file.mimetype.startsWith('image/');
+  const isVideoType = allowedVideoTypes.test(extname) && file.mimetype.startsWith('video/');
 
-  if (mimetype && extname) {
+  if (isImageType || isVideoType) {
     return cb(null, true);
   } else {
-    cb(new Error('Only image files are allowed!'), false);
+    cb(new Error('Only image and video files are allowed!'), false);
   }
 };
 
@@ -22,21 +25,22 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 100 * 1024 * 1024, // 100MB limit for videos
     files: 1 // Only allow 1 file at a time
   },
   fileFilter: fileFilter
 });
 
-// Middleware for single image upload
-export const uploadSingleImage = upload.single('image');
+// Middleware for single media upload (image or video)
+export const uploadSingleMedia = upload.single('media');
+export const uploadSingleImage = upload.single('image'); 
 
 // Error handling middleware for multer
 export const handleUploadError = (error, req, res, next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({
-        message: 'File too large. Maximum size is 10MB.',
+        message: 'File too large. Maximum size is 100MB.',
         error: error.message
       });
     }
@@ -52,9 +56,9 @@ export const handleUploadError = (error, req, res, next) => {
     });
   }
   
-  if (error.message === 'Only image files are allowed!') {
+  if (error.message === 'Only image and video files are allowed!') {
     return res.status(400).json({
-      message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
+      message: 'Invalid file type. Only JPEG, PNG, GIF, WebP images and MP4, MOV, AVI, MKV, WebM videos are allowed.',
       error: error.message
     });
   }

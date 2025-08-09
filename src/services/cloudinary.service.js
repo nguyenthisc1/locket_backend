@@ -3,22 +3,22 @@ import streamifier from 'streamifier'
 
 class CloudinaryService {
 	/**
-	 * Upload image to Cloudinary
+	 * Upload media (image/video) to Cloudinary
 	 * @param {Buffer|string} file - File buffer or base64 string
 	 * @param {Object} options - Upload options
 	 * @returns {Promise<Object>} Upload result
 	 */
-	static async uploadImage(file, options = {}) {
+	static async uploadMedia(file, options = {}) {
 		// Debug: log file type and preview
 		if (typeof file === "string") {
-			console.log("🚀 ~ CloudinaryService ~ uploadImage ~ file (first 100):", file.slice(0, 100));
+			console.log("🚀 ~ CloudinaryService ~ uploadMedia ~ file (first 100):", file.slice(0, 100));
 		} else if (Buffer.isBuffer(file)) {
-			console.log("🚀 ~ CloudinaryService ~ uploadImage ~ file (Buffer):", true, "length:", file.length);
+			console.log("🚀 ~ CloudinaryService ~ uploadMedia ~ file (Buffer):", true, "length:", file.length);
 		} else {
-			console.log("🚀 ~ CloudinaryService ~ uploadImage ~ file (Unknown type):", typeof file);
+			console.log("🚀 ~ CloudinaryService ~ uploadMedia ~ file (Unknown type):", typeof file);
 		}
 
-		let imageBuffer;
+		let mediaBuffer;
 
 		try {
 			// Handle string input (base64, with or without data URI)
@@ -36,30 +36,37 @@ class CloudinaryService {
 					}
 				}
 				try {
-					imageBuffer = Buffer.from(base64String, "base64");
-					if (imageBuffer.length < 4) {
-						throw new Error("Decoded buffer too short to be a valid image.");
+					mediaBuffer = Buffer.from(base64String, "base64");
+					if (mediaBuffer.length < 4) {
+						throw new Error("Decoded buffer too short to be a valid media file.");
 					}
 				} catch (err) {
-					throw new Error("Could not decode base64 image data.");
+					throw new Error("Could not decode base64 media data.");
 				}
 			} else if (Buffer.isBuffer(file)) {
-				imageBuffer = file;
+				mediaBuffer = file;
 			} else {
 				throw new Error("Invalid file format. Expected Buffer or base64 string.");
 			}
 
 			// Validate buffer
-			if (!imageBuffer || !Buffer.isBuffer(imageBuffer) || imageBuffer.length === 0) {
-				throw new Error("Image buffer is empty after decoding.");
+			if (!mediaBuffer || !Buffer.isBuffer(mediaBuffer) || mediaBuffer.length === 0) {
+				throw new Error("Media buffer is empty after decoding.");
 			}
 
+			// Determine if file is video based on buffer or options
+			const isVideo = options.resource_type === "video" || this.isVideoBuffer(mediaBuffer);
+			
 			// Prepare upload options
 			const uploadOptions = {
-				folder: "locket-photos",
-				resource_type: "image",
-				allowed_formats: ["jpg", "jpeg", "png", "gif", "webp"],
-				transformation: [{ quality: "auto:good" }, { fetch_format: "auto" }],
+				folder: options.folder || (isVideo ? "locket-videos" : "locket-photos"), // Use provided folder or default
+				resource_type: isVideo ? "video" : "image",
+				allowed_formats: isVideo 
+					? ["mp4", "mov", "avi", "mkv", "webm", "m4v"]
+					: ["jpg", "jpeg", "png", "gif", "webp"],
+				transformation: isVideo 
+					? [{ quality: "auto:good" }]
+					: [{ quality: "auto:good" }, { fetch_format: "auto" }],
 				...options,
 			};
 
@@ -68,12 +75,12 @@ class CloudinaryService {
 				const uploadStream = cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
 					if (error) {
 						// Provide detailed error for debugging
-						reject(new Error(`Failed to upload image: ${error.message}`));
+						reject(new Error(`Failed to upload media: ${error.message}`));
 					} else {
 						resolve(result);
 					}
 				});
-				streamifier.createReadStream(imageBuffer).pipe(uploadStream);
+				streamifier.createReadStream(mediaBuffer).pipe(uploadStream);
 			});
 
 			// Validate upload result
@@ -99,6 +106,93 @@ class CloudinaryService {
 				console.error("Stack trace:", error.stack);
 			}
 			throw new Error(`Failed to upload image: ${error.message}`);
+		}
+	}
+
+	/**
+	 * Upload image to Cloudinary (backward compatibility)
+	 * @param {Buffer|string} file - File buffer or base64 string
+	 * @param {Object} options - Upload options
+	 * @returns {Promise<Object>} Upload result
+	 */
+	static async uploadImage(file, options = {}) {
+		return this.uploadMedia(file, { ...options, resource_type: "image" });
+	}
+
+	/**
+	 * Upload video to Cloudinary
+	 * @param {Buffer|string} file - File buffer or base64 string
+	 * @param {Object} options - Upload options
+	 * @returns {Promise<Object>} Upload result
+	 */
+	static async uploadVideo(file, options = {}) {
+		return this.uploadMedia(file, { ...options, resource_type: "video" });
+	}
+
+	/**
+	 * Detect if buffer contains video data
+	 * @param {Buffer} buffer - File buffer
+	 * @returns {boolean} True if video
+	 */
+	static isVideoBuffer(buffer) {
+		if (!Buffer.isBuffer(buffer) || buffer.length < 12) return false;
+
+		// Check for common video file signatures
+		const signature = buffer.toString('hex', 0, 12).toLowerCase();
+		
+		// MP4 signatures
+		if (signature.includes('667479706d703') || // ftyp mp4
+			signature.includes('667479706973') || // ftyp isom
+			signature.includes('667479704d534e56') || // ftyp MSNV
+			signature.includes('66747970717434')) { // ftyp qt
+			return true;
+		}
+
+		// MOV (QuickTime) signature
+		if (signature.includes('6d6f6f76') || // moov
+			signature.includes('667265654d4f56') || // free MOV
+			signature.includes('6d646174')) { // mdat
+			return true;
+		}
+
+		// AVI signature
+		if (signature.slice(0, 8) === '52494646' && signature.slice(16, 24) === '41564920') {
+			return true;
+		}
+
+		// WebM signature
+		if (signature.slice(0, 8) === '1a45dfa3') {
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Detect if base64 string contains video data
+	 * @param {string} base64String - Base64 encoded string
+	 * @returns {boolean} True if video
+	 */
+	static isVideoBase64(base64String) {
+		try {
+			// Handle data URI format
+			let base64Data = base64String;
+			const dataUriMatch = base64String.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+			if (dataUriMatch) {
+				// Check MIME type first if it's a data URI
+				const mimeType = dataUriMatch[1];
+				if (mimeType.startsWith('video/')) {
+					return true;
+				}
+				base64Data = dataUriMatch[2];
+			}
+
+			// Decode first few bytes to check file signature
+			const headerBytes = Buffer.from(base64Data.substring(0, 32), 'base64');
+			return this.isVideoBuffer(headerBytes);
+		} catch (error) {
+			// If we can't decode, assume it's an image
+			return false;
 		}
 	}
 

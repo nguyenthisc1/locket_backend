@@ -1,15 +1,21 @@
 import { body } from 'express-validator';
 
-// Base Photo DTO for common photo data
+// Base Photo DTO for common media data (photos/videos)
 export class PhotoDTO {
   constructor(data) {
     this.id = data._id || data.id;
     this.userId = data.userId;
-    this.imageUrl = data.imageUrl;
+    this.imageUrl = data.imageUrl; // URL for both images and videos
     this.caption = data.caption;
     this.sharedWith = data.sharedWith || [];
     this.location = data.location;
     this.reactions = data.reactions || [];
+    this.mediaType = data.mediaType || 'image';
+    this.duration = data.duration; // For videos
+    this.format = data.format;
+    this.width = data.width;
+    this.height = data.height;
+    this.fileSize = data.fileSize;
     this.createdAt = data.createdAt;
   }
 
@@ -26,6 +32,12 @@ export class PhotoDTO {
       sharedWith: this.sharedWith,
       location: this.location,
       reactions: this.reactions,
+      mediaType: this.mediaType,
+      duration: this.duration,
+      format: this.format,
+      width: this.width,
+      height: this.height,
+      fileSize: this.fileSize,
       createdAt: this.createdAt
     };
   }

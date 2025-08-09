@@ -145,6 +145,11 @@ export class UserController {
 			const friendRequestData = new FriendRequestDTO(req.body);
 			const { friendId } = friendRequestData;
 
+			// DEBUG: Log the request details
+			console.log('=== SEND FRIEND REQUEST DEBUG ===');
+			console.log('Sender ID:', req.user._id);
+			console.log('Friend ID:', friendId);
+
 			// Check if trying to add self
 			if (friendId === req.user._id.toString()) {
 				return res.status(400).json(createErrorResponse("friend.cannotAddSelf", null, null, detectLanguage(req)));
@@ -181,6 +186,9 @@ export class UserController {
 				status: 'pending'
 			});
 
+			console.log('Created friend request:', friendRequest);
+			console.log('=== END SEND DEBUG ===');
+
 			const populatedRequest = await Friend.findById(friendRequest._id)
 				.populate('friendId', 'username email avatarUrl')
 				.populate('userId', 'username email avatarUrl');
@@ -205,10 +213,10 @@ export class UserController {
 			const statusData = new FriendStatusDTO(req.body);
 			const { status } = statusData;
 
-			// Find the friend request
+			// Find the friend request where current user is the recipient
 			const friendRequest = await Friend.findOne({
 				_id: requestId,
-				friendId: req.user._id,
+				friendId: req.user._id,  // Current user must be the recipient
 				status: 'pending'
 			});
 
