@@ -10,14 +10,14 @@ export {
 } from './user.dto.js';
 
 export {
-  PhotoDTO,
-  CreatePhotoDTO,
-  UpdatePhotoDTO,
+  FeedDTO,
+  CreateFeedDTO,
+  UpdateFeedDTO,
   AddReactionDTO,
-  PhotoResponseDTO,
-  PhotoListResponseDTO,
-  SearchPhotosDTO
-} from './photo.dto.js';
+  FeedResponseDTO,
+  FeedListResponseDTO,
+  SearchFeedsDTO
+} from './feed.dto.js';
 
 export {
   FriendRequestDTO,

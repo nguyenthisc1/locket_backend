@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import reactionSchema from "./reaction.model.js";
 
-const photoSchema = new mongoose.Schema({
+const feedSchema = new mongoose.Schema({
 	userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 	imageUrl: { type: String, required: true }, // Can be image or video URL
 	publicId: { type: String }, // Cloudinary public ID for management
@@ -29,15 +29,15 @@ const photoSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt field before saving
-photoSchema.pre('save', function(next) {
+feedSchema.pre('save', function(next) {
 	this.updatedAt = new Date();
 	next();
 });
 
 // Index for better query performance
-photoSchema.index({ userId: 1, createdAt: -1 });
-photoSchema.index({ sharedWith: 1, createdAt: -1 });
-photoSchema.index({ publicId: 1 }); // Index for Cloudinary public ID
-photoSchema.index({ mediaType: 1 }); // Index for media type queries
+feedSchema.index({ userId: 1, createdAt: -1 });
+feedSchema.index({ sharedWith: 1, createdAt: -1 });
+feedSchema.index({ publicId: 1 }); // Index for Cloudinary public ID
+feedSchema.index({ mediaType: 1 }); // Index for media type queries
 
-export default mongoose.model("Photo", photoSchema);
+export default mongoose.model("Feed", feedSchema);

@@ -10,8 +10,8 @@ import validateEnv from "./utils/validateEnv.js";
 import authRoutes from "./routes/auth.routes.js";
 import conversationRoutes from "./routes/conversation.routes.js";
 import messageRoutes from "./routes/message.routes.js";
-import photoRoutes from "./routes/photo.routes.js";
-import photoUploadRoutes from "./routes/photoUpload.routes.js";
+import feedRoutes from "./routes/feed.routes.js";
+import uploadRoutes from "./routes/upload.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 
@@ -47,8 +47,8 @@ app.use(`/${API_VERSION}/docs`, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Routes
 app.use(`/${API_VERSION}/auth`, authRoutes);
 app.use(`/${API_VERSION}/user`, userRoutes);
-app.use(`/${API_VERSION}/photo`, photoRoutes);
-app.use(`/${API_VERSION}/upload`, photoUploadRoutes);
+app.use(`/${API_VERSION}/feed`, feedRoutes);
+app.use(`/${API_VERSION}/upload`, uploadRoutes);
 app.use(`/${API_VERSION}/conversation`, conversationRoutes);
 app.use(`/${API_VERSION}/message`, messageRoutes);
 app.use(`/${API_VERSION}/notifications`, notificationRoutes);

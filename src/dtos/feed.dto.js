@@ -1,7 +1,7 @@
 import { body } from 'express-validator';
 
-// Base Photo DTO for common media data (photos/videos)
-export class PhotoDTO {
+// Base Feed DTO for common media data (feeds/videos)
+export class FeedDTO {
   constructor(data) {
     this.id = data._id || data.id;
     this.userId = data.userId;
@@ -19,8 +19,8 @@ export class PhotoDTO {
     this.createdAt = data.createdAt;
   }
 
-  static fromModel(photo) {
-    return new PhotoDTO(photo);
+  static fromModel(feed) {
+    return new FeedDTO(feed);
   }
 
   toJSON() {
@@ -43,8 +43,8 @@ export class PhotoDTO {
   }
 }
 
-// Create Photo DTO
-export class CreatePhotoDTO {
+// Create Feed DTO
+export class CreateFeedDTO {
   constructor(data) {
     this.imageUrl = data.imageUrl;
     this.caption = data.caption;
@@ -88,8 +88,8 @@ export class CreatePhotoDTO {
   }
 }
 
-// Update Photo DTO
-export class UpdatePhotoDTO {
+// Update Feed DTO
+export class UpdateFeedDTO {
   constructor(data) {
     this.caption = data.caption;
     this.sharedWith = data.sharedWith;
@@ -151,20 +151,20 @@ export class AddReactionDTO {
   }
 }
 
-// Photo Response DTO
-export class PhotoResponseDTO {
-  constructor(photo, user = null) {
-    this.photo = PhotoDTO.fromModel(photo);
+// Feed Response DTO
+export class FeedResponseDTO {
+  constructor(feed, user = null) {
+    this.feed = FeedDTO.fromModel(feed);
     this.user = user;
   }
 
-  static fromPhoto(photo, user = null) {
-    return new PhotoResponseDTO(photo, user);
+  static fromFeed(feed, user = null) {
+    return new FeedResponseDTO(feed, user);
   }
 
   toJSON() {
     return {
-      photo: this.photo.toJSON(),
+      feed: this.feed.toJSON(),
       user: this.user ? {
         id: this.user._id,
         username: this.user.username,
@@ -174,27 +174,27 @@ export class PhotoResponseDTO {
   }
 }
 
-// Photo List Response DTO
-export class PhotoListResponseDTO {
-  constructor(photos, pagination = null) {
-    this.photos = photos.map(photo => PhotoDTO.fromModel(photo));
+// Feed List Response DTO
+export class FeedListResponseDTO {
+  constructor(feeds, pagination = null) {
+    this.feeds = feeds.map(feed => FeedDTO.fromModel(feed));
     this.pagination = pagination;
   }
 
-  static fromPhotos(photos, pagination = null) {
-    return new PhotoListResponseDTO(photos, pagination);
+  static fromFeeds(feeds, pagination = null) {
+    return new FeedListResponseDTO(feeds, pagination);
   }
 
   toJSON() {
     return {
-      photos: this.photos.map(photo => photo.toJSON()),
+      feeds: this.feeds.map(feed => feed.toJSON()),
       pagination: this.pagination
     };
   }
 }
 
-// Search Photos DTO
-export class SearchPhotosDTO {
+// Search Feeds DTO
+export class SearchFeedsDTO {
   constructor(data) {
     this.query = data.query;
     this.userId = data.userId;
