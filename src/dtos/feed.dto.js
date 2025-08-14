@@ -7,6 +7,7 @@ export class FeedDTO {
     this.userId = data.userId;
     this.imageUrl = data.imageUrl; // URL for both images and videos
     this.caption = data.caption;
+    this.isFrontCamera = data.isFrontCamera;
     this.sharedWith = data.sharedWith || [];
     this.location = data.location;
     this.reactions = data.reactions || [];
@@ -29,6 +30,7 @@ export class FeedDTO {
       userId: this.userId,
       imageUrl: this.imageUrl,
       caption: this.caption,
+      isFrontCamera: this.isFrontCamera,
       sharedWith: this.sharedWith,
       location: this.location,
       reactions: this.reactions,
@@ -48,6 +50,7 @@ export class CreateFeedDTO {
   constructor(data) {
     this.imageUrl = data.imageUrl;
     this.caption = data.caption;
+    this.isFrontCamera = data.isFrontCamera;
     this.sharedWith = data.sharedWith || [];
     this.location = data.location;
   }
@@ -64,6 +67,11 @@ export class CreateFeedDTO {
         .optional()
         .isLength({ max: 500 })
         .withMessage('Caption must be less than 500 characters'),
+      
+      body('isFrontCamera')
+        .optional()
+        .isBoolean()
+        .withMessage('isFrontCamera must be a boolean value'),
       
       body('sharedWith')
         .optional()
@@ -92,6 +100,7 @@ export class CreateFeedDTO {
 export class UpdateFeedDTO {
   constructor(data) {
     this.caption = data.caption;
+    this.isFrontCamera = data.isFrontCamera;
     this.sharedWith = data.sharedWith;
     this.location = data.location;
   }
@@ -102,6 +111,11 @@ export class UpdateFeedDTO {
         .optional()
         .isLength({ max: 500 })
         .withMessage('Caption must be less than 500 characters'),
+      
+      body('isFrontCamera')
+        .optional()
+        .isBoolean()
+        .withMessage('isFrontCamera must be a boolean value'),
       
       body('sharedWith')
         .optional()
@@ -128,6 +142,7 @@ export class UpdateFeedDTO {
   toUpdateData() {
     const updateData = {};
     if (this.caption !== undefined) updateData.caption = this.caption;
+    if (this.isFrontCamera !== undefined) updateData.isFrontCamera = this.isFrontCamera;
     if (this.sharedWith !== undefined) updateData.sharedWith = this.sharedWith;
     if (this.location !== undefined) updateData.location = this.location;
     return updateData;

@@ -139,6 +139,7 @@ export class FeedController {
 				publicId,      // Cloudinary public ID
 				mediaType,     // 'image' or 'video'
 				caption,       // Caption text
+				isFrontCamera, // Whether front camera was used
 				sharedWith,    // Array of user IDs
 				location,      // Location object {lat, lng}
 				duration,      // Video duration (optional)
@@ -159,6 +160,7 @@ export class FeedController {
 				imageUrl: url,
 				publicId: publicId,
 				caption: caption || "",
+				isFrontCamera: isFrontCamera ?? true,
 				sharedWith: sharedWith || [],
 				location: location || null,
 				mediaType: mediaType,
@@ -183,30 +185,30 @@ export class FeedController {
 	}
 
 	// Create a new feed (legacy method - kept for backward compatibility)
-	static async createFeed(req, res) {
-		try {
-			const errors = validationResult(req);
-			if (!errors.isEmpty()) {
-				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
-			}
+	// static async createFeed(req, res) {
+	// 	try {
+	// 		const errors = validationResult(req);
+	// 		if (!errors.isEmpty()) {
+	// 			return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
+	// 		}
 
-			const feedData = new CreateFeedDTO(req.body);
-			const feed = new Feed({
-				...feedData,
-				userId: req.user._id,
-			});
+	// 		const feedData = new CreateFeedDTO(req.body);
+	// 		const feed = new Feed({
+	// 			...feedData,
+	// 			userId: req.user._id,
+	// 		});
 
-			await feed.save();
+	// 		await feed.save();
 
-			const populatedFeed = await Feed.findById(feed._id).populate("userId", "username avatarUrl").populate("sharedWith", "username avatarUrl");
+	// 		const populatedFeed = await Feed.findById(feed._id).populate("userId", "username avatarUrl").populate("sharedWith", "username avatarUrl");
 
-			const feedResponse = FeedResponseDTO.fromFeed(populatedFeed);
-			res.status(201).json(createSuccessResponse("feed.feedCreated", feedResponse.toJSON(), detectLanguage(req)));
-		} catch (error) {
-			console.error("Error creating feed:", error);
-			res.status(500).json(createErrorResponse("feed.feedCreationFailed", error.message, null, detectLanguage(req)));
-		}
-	}
+	// 		const feedResponse = FeedResponseDTO.fromFeed(populatedFeed);
+	// 		res.status(201).json(createSuccessResponse("feed.feedCreated", feedResponse.toJSON(), detectLanguage(req)));
+	// 	} catch (error) {
+	// 		console.error("Error creating feed:", error);
+	// 		res.status(500).json(createErrorResponse("feed.feedCreationFailed", error.message, null, detectLanguage(req)));
+	// 	}
+	// }
 
 	// Update a feed
 	static async updateFeed(req, res) {

@@ -6,17 +6,48 @@ const storage = multer.memoryStorage();
 
 // File filter function for images and videos
 const fileFilter = (req, file, cb) => {
-  // Check file type - support both images and videos
-  const allowedImageTypes = /jpeg|jpg|png|gif|webp/;
-  const allowedVideoTypes = /mp4|mov|avi|mkv|webm|m4v/;
-  
-  const extname = path.extname(file.originalname).toLowerCase();
-  const isImageType = allowedImageTypes.test(extname) && file.mimetype.startsWith('image/');
-  const isVideoType = allowedVideoTypes.test(extname) && file.mimetype.startsWith('video/');
+  console.log('🔍 File validation:', {
+    originalname: file.originalname,
+    mimetype: file.mimetype,
+    fieldname: file.fieldname
+  });
 
-  if (isImageType || isVideoType) {
+  // Allowed MIME types - comprehensive list
+  const allowedMimeTypes = [
+    // Image types
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    // Video types
+    'video/mp4',
+    'video/quicktime',     // MOV
+    'video/x-msvideo',     // AVI
+    'video/x-matroska',    // MKV
+    'video/webm',
+    'video/avi',           // Alternative AVI
+    'video/mov',           // Alternative MOV
+    'video/m4v'            // M4V
+  ];
+
+  // Check if the MIME type is allowed
+  const isMimeTypeAllowed = allowedMimeTypes.includes(file.mimetype.toLowerCase());
+  
+  // Also check file extension as backup
+  const extname = path.extname(file.originalname).toLowerCase();
+  const allowedExtensions = /\.(jpeg|jpg|png|gif|webp|mp4|mov|avi|mkv|webm|m4v)$/i;
+  const isExtensionAllowed = allowedExtensions.test(extname);
+
+  if (isMimeTypeAllowed || isExtensionAllowed) {
+    console.log('✅ File validation passed');
     return cb(null, true);
   } else {
+    console.log('❌ File validation failed:', {
+      mimetype: file.mimetype,
+      extension: extname,
+      allowed: allowedMimeTypes
+    });
     cb(new Error('Only image and video files are allowed!'), false);
   }
 };
@@ -32,8 +63,7 @@ const upload = multer({
 });
 
 // Middleware for single media upload (image or video)
-export const uploadSingleMedia = upload.single('media');
-export const uploadSingleImage = upload.single('image'); 
+export const uploadSingleMedia = upload.single('mediaData');
 
 // Error handling middleware for multer
 export const handleUploadError = (error, req, res, next) => {

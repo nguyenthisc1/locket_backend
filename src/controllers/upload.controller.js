@@ -45,18 +45,61 @@ export class UploadController {
 			console.log("- Resource type:", cloudinaryResult.resource_type);
 			console.log("- Duration:", cloudinaryResult.duration);
 
-			// Return only Cloudinary data (no database storage)
-			const successMessage = isVideo ? "upload.videoUploaded" : "upload.fileUploaded";
-			res.status(200).json(createSuccessResponse(successMessage, {
+			// Automatically create feed after successful upload
+			const feedData = {
 				url: cloudinaryResult.url,
 				publicId: cloudinaryResult.public_id,
 				mediaType: isVideo ? 'video' : 'image',
+				caption: req.body.caption || "",
+				isFrontCamera: req.body.isFrontCamera ?? true,
+				sharedWith: req.body.sharedWith || [],
+				location: req.body.location || null,
+				duration: cloudinaryResult.duration,
 				format: cloudinaryResult.format,
 				width: cloudinaryResult.width,
 				height: cloudinaryResult.height,
-				duration: cloudinaryResult.duration,
-				fileSize: cloudinaryResult.bytes,
-				resourceType: cloudinaryResult.resource_type
+				fileSize: cloudinaryResult.bytes
+			};
+
+			// Create feed entry in database
+			const feed = await Feed.create({
+				userId: req.user._id,
+				imageUrl: feedData.url,
+				publicId: feedData.publicId,
+				caption: feedData.caption,
+				isFrontCamera: feedData.isFrontCamera,
+				sharedWith: feedData.sharedWith,
+				location: feedData.location,
+				mediaType: feedData.mediaType,
+				duration: feedData.mediaType === 'video' ? feedData.duration : undefined,
+				format: feedData.format,
+				width: feedData.width,
+				height: feedData.height,
+				fileSize: feedData.fileSize
+			});
+
+			// Populate user data
+			const populatedFeed = await Feed.findById(feed._id)
+				.populate("userId", "username avatarUrl")
+				.populate("sharedWith", "username avatarUrl");
+
+			const feedResponse = FeedResponseDTO.fromFeed(populatedFeed);
+
+			// Return both upload success and created feed
+			const successMessage = isVideo ? "upload.videoUploaded" : "upload.fileUploaded";
+			res.status(201).json(createSuccessResponse(successMessage, {
+				upload: {
+					url: cloudinaryResult.url,
+					publicId: cloudinaryResult.public_id,
+					mediaType: isVideo ? 'video' : 'image',
+					format: cloudinaryResult.format,
+					width: cloudinaryResult.width,
+					height: cloudinaryResult.height,
+					duration: cloudinaryResult.duration,
+					fileSize: cloudinaryResult.bytes,
+					resourceType: cloudinaryResult.resource_type
+				},
+				feed: feedResponse.toJSON()
 			}, detectLanguage(req)));
 		} catch (error) {
 			console.error("Media upload error:", error);

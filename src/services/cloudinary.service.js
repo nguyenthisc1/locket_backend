@@ -57,7 +57,6 @@ class CloudinaryService {
 			// Determine if file is video based on buffer or options
 			const isVideo = options.resource_type === "video" || this.isVideoBuffer(mediaBuffer);
 			
-			// Prepare upload options
 			const uploadOptions = {
 				folder: options.folder || (isVideo ? "locket-videos" : "locket-photos"), // Use provided folder or default
 				resource_type: isVideo ? "video" : "image",

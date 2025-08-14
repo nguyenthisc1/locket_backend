@@ -6,6 +6,7 @@ const feedSchema = new mongoose.Schema({
 	imageUrl: { type: String, required: true }, // Can be image or video URL
 	publicId: { type: String }, // Cloudinary public ID for management
 	caption: { type: String, maxlength: 500 },
+	isFrontCamera: { type: Boolean },
 	sharedWith: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 	location: {
 		lat: { type: Number, min: -90, max: 90 },
