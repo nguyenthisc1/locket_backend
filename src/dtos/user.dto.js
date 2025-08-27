@@ -181,17 +181,19 @@ export class AuthResponseDTO {
 
 // User Profile Response DTO
 export class UserProfileResponseDTO {
-  constructor(user) {
+  constructor(user, friends = []) {
     this.user = UserDTO.fromModel(user);
+    this.friends = friends.map(friend => UserDTO.fromModel(friend));
   }
 
-  static fromUser(user) {
-    return new UserProfileResponseDTO(user);
+  static fromUser(user, friends = []) {
+    return new UserProfileResponseDTO(user, friends);
   }
 
   toJSON() {
     return {
-      user: this.user.toJSON()
+      user: this.user.toJSON(),
+      friends: this.friends.map(friend => friend.toJSON())
     };
   }
 }

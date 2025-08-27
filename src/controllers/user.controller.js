@@ -15,7 +15,25 @@ export class UserController {
 				return res.status(404).json(createErrorResponse("user.userNotFound", null, null, detectLanguage(req)));
 			}
 
-			const profileResponse = UserProfileResponseDTO.fromUser(user);
+			// Fetch user's friends list
+			const friendships = await Friend.find({
+				$or: [
+					{ userId: req.user._id, status: 'accepted' },
+					{ friendId: req.user._id, status: 'accepted' }
+				]
+			})
+			.populate('userId', 'username email avatarUrl')
+			.populate('friendId', 'username email avatarUrl');
+
+			// Extract the friend user objects (not the current user)
+			const friends = friendships.map(friendship => {
+				return friendship.userId._id.toString() === req.user._id.toString() 
+					? friendship.friendId 
+					: friendship.userId;
+			});
+
+			const profileResponse = UserProfileResponseDTO.fromUser(user, friends);
+			console.log(profileResponse)
 			console.log('profile Response' + profileResponse.toJSON());
 			res.json(createSuccessResponse("user.userRetrieved", profileResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
