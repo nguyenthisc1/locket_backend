@@ -13,4 +13,7 @@ const userSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
   });
   
+
+userSchema.index({ username: "text", email: "text" }); 
+
 export default mongoose.model('User', userSchema);

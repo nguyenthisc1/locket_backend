@@ -177,6 +177,15 @@ export class FeedResponseDTO {
     return new FeedResponseDTO(feed, user);
   }
 
+  static fromAggregatedFeed(aggregatedFeed) {
+    // For aggregated feeds that already include user data
+    const feedData = {
+      ...aggregatedFeed,
+      userId: aggregatedFeed.user || aggregatedFeed.userId
+    };
+    return new FeedResponseDTO(feedData, aggregatedFeed.user);
+  }
+
   toJSON() {
     return {
       feed: this.feed.toJSON(),
@@ -191,13 +200,35 @@ export class FeedResponseDTO {
 
 // Feed List Response DTO
 export class FeedListResponseDTO {
-  constructor(feeds, pagination = null) {
-    this.feeds = feeds.map(feed => FeedDTO.fromModel(feed));
+  constructor(feeds, pagination = null, processedFeeds = null) {
+    this.feeds = processedFeeds || feeds.map(feed => FeedDTO.fromModel(feed));
     this.pagination = pagination;
   }
 
   static fromFeeds(feeds, pagination = null) {
     return new FeedListResponseDTO(feeds, pagination);
+  }
+
+  static fromAggregatedFeeds(aggregatedFeeds, pagination = null) {
+    console.log("Processing aggregated feeds:", aggregatedFeeds.length);
+    
+    // For aggregated feeds that include user data
+    const processedFeeds = aggregatedFeeds.map(feed => {
+      console.log("Processing feed:", feed._id);
+      // Create a proper feed structure that FeedDTO can handle
+      const feedData = {
+        ...feed,
+        userId: feed.user || feed.userId
+      };
+      return FeedDTO.fromModel(feedData);
+    });
+    
+    console.log("Processed feeds count:", processedFeeds.length);
+    
+    // Create instance with processed feeds directly
+    const instance = new FeedListResponseDTO([], pagination);
+    instance.feeds = processedFeeds;
+    return instance;
   }
 
   toJSON() {

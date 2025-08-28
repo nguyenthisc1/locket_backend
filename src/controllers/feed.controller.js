@@ -45,42 +45,180 @@ export class FeedController {
 	// };
 
 	// Get feeds (with cursor-based pagination)
+	// static async getFeeds2(req, res) {
+	// 	try {
+	// 		const { query, limit = 10, lastCreatedAt } = req.query;
+	// 		const parsedLimit = parseInt(limit);
+
+	// 		// Get current user with friends
+	// 		const currentUser = await User.findById(req.user._id).populate('friends', '_id');
+	// 		if (!currentUser) {
+	// 			return res.status(404).json(createErrorResponse("user.userNotFound", null, null, detectLanguage(req)));
+	// 		}
+
+	// 		// Create array of user IDs including current user and friends
+	// 		const userIds = [req.user._id, ...currentUser.friends.map(friend => friend._id)];
+
+	// 		let searchQuery = {
+	// 			$or: [
+	// 				{ userId: { $in: userIds } }, // Feeds from user and friends
+	// 				{ sharedWith: req.user._id }  // Feeds shared with current user
+	// 			]
+	// 		};
+
+	// 		// Add caption search if provided
+	// 		if (query) {
+	// 			searchQuery.caption = { $regex: query, $options: "i" };
+	// 		}
+
+	// 		// Add cursor-based pagination
+	// 		if (lastCreatedAt) {
+	// 			searchQuery.createdAt = { $lt: new Date(lastCreatedAt) };
+	// 		}
+
+	// 		const feeds = await Feed.find(searchQuery)
+	// 			.populate("userId", "username avatarUrl")
+	// 			.populate("sharedWith", "username avatarUrl")
+	// 			.sort({ createdAt: -1 })
+	// 			.limit(parsedLimit);
+
+	// 		const hasNextPage = feeds.length === parsedLimit;
+	// 		const nextCursor = hasNextPage ? feeds[feeds.length - 1].createdAt : null;
+
+	// 		const pagination = {
+	// 			limit: parsedLimit,
+	// 			hasNextPage,
+	// 			nextCursor,
+	// 		};
+
+	// 		const feedListResponse = FeedListResponseDTO.fromFeeds(feeds, pagination);
+	// 		res.json(createSuccessResponse("feed.feedsRetrieved", feedListResponse.toJSON(), detectLanguage(req)));
+	// 	} catch (error) {
+	// 		console.error("Error fetching feeds (cursor-based):", error);
+	// 		res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
+	// 	}
+	// }
+
 	static async getFeeds(req, res) {
 		try {
-			const { query, limit = 10, lastCreatedAt } = req.query;
+			const { query, limit =  10, lastCreatedAt, mediaType, userId, sharedWithMe } = req.query;
+
+			console.log("Request query params:", req.query);
+			console.log("User ID from auth:", req.user._id);
 			const parsedLimit = parseInt(limit);
 
-			// Get current user with friends
-			const currentUser = await User.findById(req.user._id).populate('friends', '_id');
+			// Get current user and their friends (lean for performance)
+			const currentUser = await User.findById(req.user._id).select("friends").lean();
+			console.log("Current user friends:", currentUser?.friends);
 			if (!currentUser) {
 				return res.status(404).json(createErrorResponse("user.userNotFound", null, null, detectLanguage(req)));
 			}
 
-			// Create array of user IDs including current user and friends
-			const userIds = [req.user._id, ...currentUser.friends.map(friend => friend._id)];
+			// Include feeds from friends AND self
+			let userIds = [req.user._id]; // Start with current user
+			if (currentUser.friends && currentUser.friends.length > 0) {
+				userIds.push(...currentUser.friends); // Add friends
+			}
 
-			let searchQuery = {
-				$or: [
-					{ userId: { $in: userIds } }, // Feeds from user and friends
-					{ sharedWith: req.user._id }  // Feeds shared with current user
-				]
+			// If userId is provided, filter by that user (must be current user or a friend)
+			if (userId && userIds.map(id => id.toString()).includes(userId)) {
+				userIds = [mongoose.Types.ObjectId(userId)];
+			}
+
+			console.log("Final userIds for feeds query:", userIds);
+
+			let matchStage = {
+				userId: { $in: userIds }
 			};
 
-			// Add caption search if provided
-			if (query) {
-				searchQuery.caption = { $regex: query, $options: "i" };
+			// Filter: sharedWithMe (feeds shared with current user)
+			if (sharedWithMe === 'true') {
+				matchStage.sharedWith = { $elemMatch: { $eq: req.user._id } };
 			}
 
-			// Add cursor-based pagination
+			// Filter: mediaType
+			if (mediaType && ["image", "video"].includes(mediaType)) {
+				matchStage.mediaType = mediaType;
+			}
+
+			// Cursor-based pagination
 			if (lastCreatedAt) {
-				searchQuery.createdAt = { $lt: new Date(lastCreatedAt) };
+				matchStage.createdAt = { ...matchStage.createdAt, $lt: new Date(lastCreatedAt) };
 			}
 
-			const feeds = await Feed.find(searchQuery)
-				.populate("userId", "username avatarUrl")
-				.populate("sharedWith", "username avatarUrl")
-				.sort({ createdAt: -1 })
-				.limit(parsedLimit);
+			console.log("Final match stage:", JSON.stringify(matchStage, null, 2));
+
+			// Debug: Check if friend has any feeds at all
+			if (userIds.length > 0) {
+				const friendFeeds = await Feed.find({ userId: { $in: userIds } }).countDocuments();
+				console.log(`Friend(s) ${userIds.join(', ')} have ${friendFeeds} total feeds`);
+			}
+
+			// Debug: Check total feeds in database
+			const totalFeeds = await Feed.countDocuments();
+			console.log(`Total feeds in database: ${totalFeeds}`);
+
+			// Build aggregation pipeline
+			const pipeline = [
+				{ $match: matchStage },
+				{
+					$lookup: {
+						from: "users",
+						localField: "userId",
+						foreignField: "_id",
+						as: "user"
+					}
+				},
+				{ $unwind: "$user" }
+			];
+
+			// Filter: query (search in caption or user.username, case-insensitive)
+			if (query && typeof query === "string" && query.trim().length > 0) {
+				const regex = { $regex: query.trim(), $options: "i" };
+				pipeline.push({
+					$match: {
+						$or: [
+							{ caption: regex },
+							{ "user.username": regex }
+						]
+					}
+				});
+			}
+
+			pipeline.push(
+				{ $sort: { createdAt: -1 } },
+				{ $limit: parsedLimit },
+				{
+					$project: {
+						_id: 1,
+						userId: "$user._id",
+						imageUrl: 1,
+						publicId: 1,
+						caption: 1,
+						isFrontCamera: 1,
+						sharedWith: 1,
+						location: 1,
+						reactions: 1,
+						mediaType: 1,
+						duration: 1,
+						format: 1,
+						width: 1,
+						height: 1,
+						fileSize: 1,
+						createdAt: 1,
+						user: {
+							_id: "$user._id",
+							username: "$user.username",
+							email: "$user.email",
+							avatarUrl: "$user.avatarUrl"
+						}
+					}
+				}
+			);
+
+			const feeds = await Feed.aggregate(pipeline);
+			console.log("Raw aggregation result:", feeds);
+			console.log("Number of feeds found:", feeds.length);
 
 			const hasNextPage = feeds.length === parsedLimit;
 			const nextCursor = hasNextPage ? feeds[feeds.length - 1].createdAt : null;
@@ -91,10 +229,12 @@ export class FeedController {
 				nextCursor,
 			};
 
-			const feedListResponse = FeedListResponseDTO.fromFeeds(feeds, pagination);
+			const feedListResponse = FeedListResponseDTO.fromAggregatedFeeds(feeds, pagination);
+			console.log(feedListResponse);
+			
 			res.json(createSuccessResponse("feed.feedsRetrieved", feedListResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
-			console.error("Error fetching feeds (cursor-based):", error);
+			console.error("Error fetching feeds (friends only):", error);
 			res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
 		}
 	}
@@ -134,7 +274,7 @@ export class FeedController {
 
 			console.log("🚀 ~ FeedController ~ createFeed ~ req.body:", req.body);
 
-			const { 
+			const {
 				url,           // Cloudinary URL from upload
 				publicId,      // Cloudinary public ID
 				mediaType,     // 'image' or 'video'

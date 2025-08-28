@@ -24,10 +24,28 @@ export class UploadController {
 			if (req.file) {
 				// Detect media type from file
 				isVideo = req.file.mimetype.startsWith('video/');
+				
+				// Add additional logging to debug video detection
+				console.log('🔍 Video Detection Debug:');
+				console.log('- File mimetype:', req.file.mimetype);
+				console.log('- Detected as video:', isVideo);
+				console.log('- Buffer length:', req.file.buffer?.length);
+				
+				// Double-check with buffer analysis if mimetype detection fails
+				if (!isVideo && req.file.buffer) {
+					const bufferIsVideo = CloudinaryService.isVideoBuffer(req.file.buffer);
+					console.log('- Buffer analysis says video:', bufferIsVideo);
+					if (bufferIsVideo) {
+						isVideo = true;
+						console.log('- Overriding mimetype detection with buffer analysis');
+					}
+				}
+				
 				const folder = isVideo ? `locket-users/${req.user._id}/videos` : `locket-users/${req.user._id}/photos`;
 				const prefix = isVideo ? 'video' : 'photo';
 				
-				console.log(`Uploading ${isVideo ? 'video' : 'image'} to folder: ${folder}`);
+				console.log(`📁 Uploading ${isVideo ? 'video' : 'image'} to folder: ${folder}`);
+				console.log(`🏷️  Using prefix: ${prefix}`);
 				
 				cloudinaryResult = await CloudinaryService.uploadMedia(req.file.buffer, {
 					folder,

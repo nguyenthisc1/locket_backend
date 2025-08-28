@@ -38,6 +38,7 @@ feedSchema.pre('save', function(next) {
 // Index for better query performance
 feedSchema.index({ userId: 1, createdAt: -1 });
 feedSchema.index({ sharedWith: 1, createdAt: -1 });
+feedSchema.index({ caption: "text" });
 feedSchema.index({ publicId: 1 }); // Index for Cloudinary public ID
 feedSchema.index({ mediaType: 1 }); // Index for media type queries
 

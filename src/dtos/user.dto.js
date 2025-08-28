@@ -192,8 +192,10 @@ export class UserProfileResponseDTO {
 
   toJSON() {
     return {
-      user: this.user.toJSON(),
-      friends: this.friends.map(friend => friend.toJSON())
+      user: {
+        ...this.user.toJSON(),
+        friends: this.friends.map(friend => friend.toJSON())
+      }
     };
   }
 }
