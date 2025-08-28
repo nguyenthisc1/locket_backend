@@ -57,6 +57,12 @@ class CloudinaryService {
 			// Determine if file is video based on buffer or options
 			const isVideo = options.resource_type === "video" || this.isVideoBuffer(mediaBuffer);
 			
+			// Debug: log folder determination
+			console.log('🏗️  CloudinaryService folder determination:');
+			console.log('- options.folder:', options.folder);
+			console.log('- isVideo (service):', isVideo);
+			console.log('- options.resource_type:', options.resource_type);
+			
 			const uploadOptions = {
 				folder: options.folder || (isVideo ? "locket-videos" : "locket-photos"), // Use provided folder or default
 				resource_type: isVideo ? "video" : "image",
@@ -68,6 +74,11 @@ class CloudinaryService {
 					: [{ quality: "auto:good" }, { fetch_format: "auto" }],
 				...options,
 			};
+			
+			console.log('📋 Final upload options:');
+			console.log('- folder:', uploadOptions.folder);
+			console.log('- resource_type:', uploadOptions.resource_type);
+			console.log('- public_id:', uploadOptions.public_id);
 
 			// Upload to Cloudinary using stream
 			const uploadResult = await new Promise((resolve, reject) => {
@@ -95,6 +106,8 @@ class CloudinaryService {
 				height: uploadResult.height,
 				format: uploadResult.format,
 				bytes: uploadResult.bytes,
+				duration: uploadResult.duration, // Include duration for videos
+				resource_type: uploadResult.resource_type, // Include resource type
 				created_at: uploadResult.created_at,
 			};
 		} catch (error) {
