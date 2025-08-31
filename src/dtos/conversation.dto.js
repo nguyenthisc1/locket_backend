@@ -234,34 +234,87 @@ export class RemoveParticipantDTO {
 
 // Conversation Response DTO
 export class ConversationResponseDTO {
-  constructor(conversation, participants = [], lastMessage = null) {
-    this.conversation = ConversationDTO.fromModel(conversation);
-    this.participants = participants;
-    this.lastMessage = lastMessage;
+  constructor(conversation, participants = []) {
+    this.id = conversation._id || conversation.id;
+    this.isGroup = conversation.isGroup || false;
+    this.admin = conversation.admin;
+    this.groupSettings = conversation.groupSettings || {};
+    this.lastMessage = conversation.lastMessage;
+    this.parentConversation = conversation.parentConversation;
+    this.threadInfo = conversation.threadInfo;
+    this.isActive = conversation.isActive;
+    this.pinnedMessages = conversation.pinnedMessages || [];
+    this.settings = conversation.settings || {};
+    this.startedAt = conversation.startedAt;
+    this.readReceipts = conversation.readReceipts || [];
+    this.createdAt = conversation.createdAt;
+    this.updatedAt = conversation.updatedAt;
+    
+    // Handle participants and name based on conversation type
+    const currentUserId = conversation.currentUserId;
+    
+    if (this.isGroup) {
+      // For group conversations, participants is an array
+      this.participants = participants;
+      
+      // Generate name from all participant names if no custom name is set
+      if (!conversation.name) {
+        this.name = participants.map(p => p.username).join(', ');
+      } else {
+        this.name = conversation.name;
+      }
+    } else {
+      // For non-group conversations, participants is a single object (the other user)
+      const otherParticipant = participants.find(p => p._id.toString() !== currentUserId?.toString()) || participants[0];
+      this.participants = otherParticipant;
+      
+      // Name is the other participant's username
+      this.name = otherParticipant?.username || conversation.name;
+    }
   }
 
-  static fromConversation(conversation, participants = [], lastMessage = null) {
-    return new ConversationResponseDTO(conversation, participants, lastMessage);
+  static fromConversation(conversation, participants = [], currentUserId = null) {
+    // Add currentUserId to conversation object for processing
+    // Handle both Mongoose documents and plain objects (from aggregation)
+    const conversationData = conversation.toObject ? conversation.toObject() : conversation;
+    const conversationWithUserId = { ...conversationData, currentUserId };
+    return new ConversationResponseDTO(conversationWithUserId, participants);
   }
 
   toJSON() {
     return {
-      conversation: this.conversation.toJSON(),
+      id: this.id,
+      name: this.name,
       participants: this.participants,
-      lastMessage: this.lastMessage
+      isGroup: this.isGroup,
+      admin: this.admin,
+      groupSettings: this.groupSettings,
+      lastMessage: this.lastMessage,
+      parentConversation: this.parentConversation,
+      threadInfo: this.threadInfo,
+      isActive: this.isActive,
+      pinnedMessages: this.pinnedMessages,
+      settings: this.settings,
+      startedAt: this.startedAt,
+      readReceipts: this.readReceipts,
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt
     };
   }
 }
 
 // Conversation List Response DTO
 export class ConversationListResponseDTO {
-  constructor(conversations, pagination = null) {
-    this.conversations = conversations.map(conv => ConversationDTO.fromModel(conv));
+  constructor(conversations, pagination = null, currentUserId = null) {
+    this.conversations = conversations.map(conv => {
+      // Create ConversationResponseDTO for each conversation to apply naming logic
+      return ConversationResponseDTO.fromConversation(conv, conv.participants, currentUserId);
+    });
     this.pagination = pagination;
   }
 
-  static fromConversations(conversations, pagination = null) {
-    return new ConversationListResponseDTO(conversations, pagination);
+  static fromConversations(conversations, pagination = null, currentUserId = null) {
+    return new ConversationListResponseDTO(conversations, pagination, currentUserId);
   }
 
   toJSON() {

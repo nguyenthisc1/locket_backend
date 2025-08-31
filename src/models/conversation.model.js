@@ -46,6 +46,7 @@ const conversationSchema = new mongoose.Schema(
 			text: { type: String },
 			senderId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 			timestamp: { type: Date },
+			isRead: { type: Boolean, default: false },
 		},
 
 		// Thread support

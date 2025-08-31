@@ -47,7 +47,7 @@ export class ConversationController {
 			await conversation.populate("participants", "username avatarUrl email");
 			await conversation.populate("admin", "username avatarUrl");
 
-			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants);
+			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants, userId);
 
 			res.status(201).json(createSuccessResponse("conversation.conversationCreated", response.toJSON(), detectLanguage(req)));
 		} catch (error) {
@@ -102,7 +102,7 @@ export class ConversationController {
 			await conversation.populate("participants", "username avatarUrl email");
 			await conversation.populate("admin", "username avatarUrl");
 
-			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants);
+			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants, userId);
 
 			res.status(200).json(
 				createSuccessResponse(conversation.isNew ? "conversation.conversationCreated" : "conversation.conversationRetrieved", response.toJSON(), detectLanguage(req))
@@ -117,35 +117,90 @@ export class ConversationController {
 	static async getUserConversations(req, res) {
 		try {
 			const userId = req.user._id;
-			const { page = 1, limit = 20 } = req.query;
-			const skip = (page - 1) * limit;
+			const { limit = 20, lastUpdatedAt } = req.query;
+			const parsedLimit = parseInt(limit);
 
-			const conversations = await Conversation.find({
+			let matchStage = {
 				participants: userId,
 				isActive: true,
-			})
-				.populate("participants", "username avatarUrl email")
-				.populate("admin", "username avatarUrl")
-				.sort({ updatedAt: -1 })
-				.limit(parseInt(limit))
-				.skip(skip);
-
-			const total = await Conversation.countDocuments({
-				participants: userId,
-				isActive: true,
-			});
-
-			const totalPages = Math.ceil(total / limit);
-
-			const pagination = {
-				currentPage: parseInt(page),
-				totalPages,
-				totalConversations: total,
-				hasNextPage: page < totalPages,
-				hasPrevPage: page > 1,
 			};
 
-			const conversationListResponse = ConversationListResponseDTO.fromConversations(conversations, pagination);
+			// Cursor-based pagination: fetch conversations updated before lastUpdatedAt
+			if (lastUpdatedAt) {
+				matchStage.updatedAt = { ...matchStage.updatedAt, $lt: new Date(lastUpdatedAt) };
+			}
+
+			// Build aggregation pipeline
+			const pipeline = [
+				{ $match: matchStage },
+				{ $sort: { updatedAt: -1 } },
+				{ $limit: parsedLimit },
+				{
+					$lookup: {
+						from: "users",
+						localField: "participants",
+						foreignField: "_id",
+						as: "participants"
+					}
+				},
+				{
+					$lookup: {
+						from: "users",
+						localField: "admin",
+						foreignField: "_id",
+						as: "admin"
+					}
+				},
+				{
+					$unwind: {
+						path: "$admin",
+						preserveNullAndEmptyArrays: true
+					}
+				},
+				{
+					$project: {
+						_id: 1,
+						name: 1,
+						participants: {
+							_id: 1,
+							username: 1,
+							avatarUrl: 1,
+							email: 1
+						},
+						isGroup: 1,
+						admin: {
+							_id: 1,
+							username: 1,
+							avatarUrl: 1
+						},
+						lastMessage: {
+							messageId: 1,
+							text: 1,
+							senderId: 1,
+							timestamp: 1,
+							isRead: 1
+						},
+						groupSettings: 1,
+						settings: 1,
+						updatedAt: 1,
+						createdAt: 1,
+						isActive: 1
+					}
+				}
+			];
+
+			const conversations = await Conversation.aggregate(pipeline);
+
+			const hasNextPage = conversations.length === parsedLimit;
+			const nextCursor = hasNextPage ? conversations[conversations.length - 1].updatedAt : null;
+
+			const pagination = {
+				limit: parsedLimit,
+				hasNextPage,
+				nextCursor,
+			};
+
+			const conversationListResponse = ConversationListResponseDTO.fromConversations(conversations, pagination, userId);
 
 			res.json(createSuccessResponse("conversation.conversationsRetrieved", conversationListResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
@@ -172,7 +227,7 @@ export class ConversationController {
 				return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
 			}
 
-			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants);
+			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants, userId);
 
 			res.json(createSuccessResponse("conversation.conversationRetrieved", response.toJSON(), detectLanguage(req)));
 		} catch (error) {
@@ -212,7 +267,7 @@ export class ConversationController {
 				.populate("participants", "username avatarUrl email")
 				.populate("admin", "username avatarUrl");
 
-			const response = ConversationResponseDTO.fromConversation(updatedConversation, updatedConversation.participants);
+			const response = ConversationResponseDTO.fromConversation(updatedConversation, updatedConversation.participants, userId);
 
 			res.json(createSuccessResponse("conversation.conversationUpdated", response.toJSON(), detectLanguage(req)));
 		} catch (error) {
@@ -249,25 +304,25 @@ export class ConversationController {
 			}
 
 			// Validate participants exist
-			const participants = await User.find({ _id: { $in: addDTO.participantIds } });
-			if (participants.length !== addDTO.participantIds.length) {
+			const participants = await User.find({ _id: { $in: addDTO.userIds } });
+			if (participants.length !== addDTO.userIds.length) {
 				return res.status(400).json(createErrorResponse("user.userNotFound", null, null, detectLanguage(req)));
 			}
 
 			// Check if participants are already in conversation
-			const existingParticipants = conversation.participants.filter((p) => addDTO.participantIds.includes(p.toString()));
+			const existingParticipants = conversation.participants.filter((p) => addDTO.userIds.includes(p.toString()));
 			if (existingParticipants.length > 0) {
 				return res.status(400).json(createErrorResponse("conversation.participantAlreadyExists", null, null, detectLanguage(req)));
 			}
 
 			// Add participants
-			conversation.participants.push(...addDTO.participantIds);
+			conversation.participants.push(...addDTO.userIds);
 			await conversation.save();
 
 			await conversation.populate("participants", "username avatarUrl email");
 			await conversation.populate("admin", "username avatarUrl");
 
-			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants);
+			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants, userId);
 
 			res.json(createSuccessResponse("conversation.participantAdded", response.toJSON(), detectLanguage(req)));
 		} catch (error) {
@@ -304,12 +359,12 @@ export class ConversationController {
 			}
 
 			// Check if trying to remove self
-			if (removeDTO.participantId === userId.toString()) {
+			if (removeDTO.userId === userId.toString()) {
 				return res.status(400).json(createErrorResponse("conversation.cannotRemoveSelf", null, null, detectLanguage(req)));
 			}
 
 			// Check if participant exists in conversation
-			const participantIndex = conversation.participants.findIndex((p) => p.toString() === removeDTO.participantId);
+			const participantIndex = conversation.participants.findIndex((p) => p.toString() === removeDTO.userId);
 			if (participantIndex === -1) {
 				return res.status(404).json(createErrorResponse("conversation.participantNotFound", null, null, detectLanguage(req)));
 			}
@@ -321,7 +376,7 @@ export class ConversationController {
 			await conversation.populate("participants", "username avatarUrl email");
 			await conversation.populate("admin", "username avatarUrl");
 
-			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants);
+			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants, userId);
 
 			res.json(createSuccessResponse("conversation.participantRemoved", response.toJSON(), detectLanguage(req)));
 		} catch (error) {
@@ -370,7 +425,7 @@ export class ConversationController {
 				hasPrevPage: page > 1,
 			};
 
-			const conversationListResponse = ConversationListResponseDTO.fromConversations(conversations, pagination);
+			const conversationListResponse = ConversationListResponseDTO.fromConversations(conversations, pagination, userId);
 
 			res.json(createSuccessResponse("conversation.searchResults", conversationListResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {

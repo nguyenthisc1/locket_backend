@@ -11,6 +11,9 @@ router.use(authMiddleware);
 // Create a new conversation
 router.post("/", CreateConversationDTO.validationRules(), ConversationController.createConversation);
 
+// Get or create conversation (typically used when sending first message)
+router.post("/get-or-create", CreateConversationDTO.validationRules(), ConversationController.getOrCreateConversation);
+
 // Get user's conversations
 router.get("/user", ConversationController.getUserConversations);
 
@@ -34,6 +37,9 @@ router.get("/:conversationId/threads", ConversationController.getConversationThr
 
 // Leave conversation
 router.post("/:conversationId/leave", ConversationController.leaveConversation);
+
+// Mark conversation as read
+router.put("/:conversationId/read", ConversationController.markConversationAsRead);
 
 // Delete conversation (soft delete)
 router.delete("/:conversationId", ConversationController.deleteConversation);
