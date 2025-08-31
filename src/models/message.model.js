@@ -153,6 +153,10 @@ const messageSchema = new mongoose.Schema({
 		type: Boolean, 
 		default: false 
 	},
+	readBy: [{
+		type: mongoose.Schema.Types.ObjectId,
+		ref: 'User'
+	}],
 	isEdited: { 
 		type: Boolean, 
 		default: false 
@@ -268,6 +272,14 @@ messageSchema.methods.deleteMessage = function() {
 // Method to pin/unpin message
 messageSchema.methods.togglePin = function() {
 	this.isPinned = !this.isPinned;
+	return this.save();
+};
+
+// Method to mark message as read by user
+messageSchema.methods.markAsReadBy = function(userId) {
+	if (!this.readBy.includes(userId)) {
+		this.readBy.push(userId);
+	}
 	return this.save();
 };
 

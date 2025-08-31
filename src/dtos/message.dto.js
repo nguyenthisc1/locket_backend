@@ -16,6 +16,7 @@ export class MessageDTO {
     this.threadInfo = data.threadInfo;
     this.reactions = data.reactions || [];
     this.isRead = data.isRead;
+    this.readBy = data.readBy || [];
     this.isEdited = data.isEdited;
     this.isDeleted = data.isDeleted;
     this.isPinned = data.isPinned;
@@ -46,6 +47,7 @@ export class MessageDTO {
       threadInfo: this.threadInfo,
       reactions: this.reactions,
       isRead: this.isRead,
+      readBy: this.readBy,
       isEdited: this.isEdited,
       isDeleted: this.isDeleted,
       isPinned: this.isPinned,
@@ -328,15 +330,20 @@ export class ReplyMessageDTO {
 
 // Message Response DTO
 export class MessageResponseDTO {
-  constructor(message, sender = null, replyMessage = null, forwardedFrom = null) {
+  constructor(message, sender = null, replyMessage = null, forwardedFrom = null, currentUserId = null) {
     this.message = MessageDTO.fromModel(message);
     this.sender = sender;
     this.replyMessage = replyMessage;
     this.forwardedFrom = forwardedFrom;
+    
+    // Calculate isRead status for current user if provided
+    if (currentUserId && this.message.readBy) {
+      this.message.isRead = this.message.readBy.includes(currentUserId.toString());
+    }
   }
 
-  static fromMessage(message, sender = null, replyMessage = null, forwardedFrom = null) {
-    return new MessageResponseDTO(message, sender, replyMessage, forwardedFrom);
+  static fromMessage(message, sender = null, replyMessage = null, forwardedFrom = null, currentUserId = null) {
+    return new MessageResponseDTO(message, sender, replyMessage, forwardedFrom, currentUserId);
   }
 
   toJSON() {

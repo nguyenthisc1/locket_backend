@@ -16,6 +16,23 @@ import Message from '../models/message.model.js';
 import { createSuccessResponse, createErrorResponse, createValidationErrorResponse, detectLanguage } from '../utils/translations.js';
 
 export class MessageController {
+  // Helper method to mark message as read by user
+  static async markMessageAsReadByUser(messageId, userId) {
+    try {
+      await Message.updateOne(
+        { 
+          _id: messageId,
+          readBy: { $nin: [userId] }
+        },
+        { 
+          $addToSet: { readBy: userId }
+        }
+      );
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+    }
+  }
+
   // Send a message
   static async sendMessage(req, res) {
     try {
@@ -107,6 +124,7 @@ export class MessageController {
         },
         sticker: createDTO.sticker,
         emote: createDTO.emote
+        // readBy starts empty - message is unread by default
       });
 
       await message.save();
