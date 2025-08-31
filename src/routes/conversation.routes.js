@@ -11,11 +11,11 @@ router.use(authMiddleware);
 // Create a new conversation
 router.post("/", CreateConversationDTO.validationRules(), ConversationController.createConversation);
 
-// Get or create conversation (typically used when sending first message)
-router.post("/get-or-create", CreateConversationDTO.validationRules(), ConversationController.getOrCreateConversation);
-
 // Get user's conversations
 router.get("/user", ConversationController.getUserConversations);
+
+// Get count of unread conversations
+router.get("/unread-count", ConversationController.getUnreadConversationsCount);
 
 // Search conversations
 router.get("/search", SearchConversationsDTO.validationRules(), ConversationController.searchConversations);

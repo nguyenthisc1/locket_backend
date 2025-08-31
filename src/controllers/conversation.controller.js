@@ -10,10 +10,138 @@ import {
 } from "../dtos/conversation.dto.js";
 import Conversation from "../models/conversation.model.js";
 import User from "../models/user.model.js";
+import Message from "../models/message.model.js";
 import mongoose from "mongoose";
 import { createSuccessResponse, createErrorResponse, createValidationErrorResponse, detectLanguage } from "../utils/translations.js";
 
 export class ConversationController {
+	// Helper method to check if last message is read by user
+	static async isLastMessageRead(conversationId, userId) {
+		try {
+			const lastMessage = await Message.findOne({
+				conversationId: conversationId
+			})
+			.sort({ createdAt: -1 })
+			.lean();
+
+			if (!lastMessage) {
+				return true; // No messages = considered read
+			}
+
+			// Check if user is in readBy array (regardless of who sent it)
+			return lastMessage.readBy && lastMessage.readBy.includes(userId);
+		} catch (error) {
+			console.error("Error checking last message read status:", error);
+			return true; // Default to read on error
+		}
+	}
+
+	// Helper method to get enriched last message with read status
+	static async getLastMessageWithReadStatus(conversationId, userId) {
+		try {
+			const lastMessage = await Message.findOne({
+				conversationId: conversationId
+			})
+			.sort({ createdAt: -1 })
+			.populate("senderId", "username avatarUrl")
+			.lean();
+
+			if (!lastMessage) {
+				return null;
+			}
+
+			// Calculate isRead status for the current user (regardless of who sent it)
+			const isRead = lastMessage.readBy && lastMessage.readBy.includes(userId);
+
+			return {
+				messageId: lastMessage._id,
+				text: lastMessage.text || (lastMessage.attachments && lastMessage.attachments.length > 0 ? "Media" : ""),
+				// senderId removed as requested
+				sender: lastMessage.senderId,
+				timestamp: lastMessage.createdAt,
+				isRead: isRead
+			};
+		} catch (error) {
+			console.error("Error fetching last message:", error);
+			return null;
+		}
+	}
+
+	// Get count of unread conversations
+	static async getUnreadConversationsCount(req, res) {
+		try {
+			const userId = req.user._id;
+
+			// Get all user's conversations
+			const conversations = await Conversation.find({
+				participants: userId,
+				isActive: true
+			}).select('_id').lean();
+
+			let unreadCount = 0;
+
+			// Check each conversation's last message read status
+			for (const conv of conversations) {
+				const isRead = await ConversationController.isLastMessageRead(conv._id, userId);
+				if (!isRead) {
+					unreadCount++;
+				}
+			}
+
+			res.json(createSuccessResponse("conversation.unreadCountRetrieved", { unreadCount }, detectLanguage(req)));
+		} catch (error) {
+			console.error("Get unread conversations count error:", error);
+			res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
+		}
+	}
+
+	// Mark conversation messages as read
+	static async markConversationAsRead(req, res) {
+		try {
+			const { conversationId } = req.params;
+			const userId = req.user._id;
+
+			// Verify conversation exists and user is participant
+			const conversation = await Conversation.findOne({
+				_id: conversationId,
+				participants: userId,
+				isActive: true,
+			});
+
+			if (!conversation) {
+				return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
+			}
+
+			// Initialize readBy field for messages that don't have it
+			await Message.updateMany(
+				{
+					conversationId: conversationId,
+					readBy: { $exists: false }
+				},
+				{
+					$set: { readBy: [] }
+				}
+			);
+
+			// Mark all unread messages in this conversation as read by the user
+			// Now includes user's own messages since isRead defaults to false for everyone
+			await Message.updateMany(
+				{
+					conversationId: conversationId,
+					readBy: { $nin: [userId] } // Only update messages not already read by user
+				},
+				{
+					$addToSet: { readBy: userId } // Add user to readBy array
+				}
+			);
+
+			res.json(createSuccessResponse("conversation.conversationMarkedAsRead", null, detectLanguage(req)));
+		} catch (error) {
+			console.error("Mark conversation as read error:", error);
+			res.status(500).json(createErrorResponse("conversation.markAsReadFailed", error.message, null, detectLanguage(req)));
+		}
+	}
+
 	// Create a new conversation
 	static async createConversation(req, res) {
 		try {
@@ -176,7 +304,6 @@ export class ConversationController {
 						lastMessage: {
 							messageId: 1,
 							text: 1,
-							senderId: 1,
 							timestamp: 1,
 							isRead: 1
 						},
@@ -191,8 +318,19 @@ export class ConversationController {
 
 			const conversations = await Conversation.aggregate(pipeline);
 
-			const hasNextPage = conversations.length === parsedLimit;
-			const nextCursor = hasNextPage ? conversations[conversations.length - 1].updatedAt : null;
+			// Enrich conversations with proper lastMessage including read status
+			const enrichedConversations = await Promise.all(
+				conversations.map(async (conv) => {
+					const lastMessage = await ConversationController.getLastMessageWithReadStatus(conv._id, userId);
+					return {
+						...conv,
+						lastMessage: lastMessage
+					};
+				})
+			);
+
+			const hasNextPage = enrichedConversations.length === parsedLimit;
+			const nextCursor = hasNextPage ? enrichedConversations[enrichedConversations.length - 1].updatedAt : null;
 
 			const pagination = {
 				limit: parsedLimit,
@@ -200,7 +338,7 @@ export class ConversationController {
 				nextCursor,
 			};
 
-			const conversationListResponse = ConversationListResponseDTO.fromConversations(conversations, pagination, userId);
+			const conversationListResponse = ConversationListResponseDTO.fromConversations(enrichedConversations, pagination, userId);
 
 			res.json(createSuccessResponse("conversation.conversationsRetrieved", conversationListResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
@@ -227,7 +365,14 @@ export class ConversationController {
 				return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
 			}
 
-			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants, userId);
+			// Enrich conversation with proper lastMessage including read status
+			const lastMessage = await ConversationController.getLastMessageWithReadStatus(conversation._id, userId);
+			const enrichedConversation = {
+				...conversation.toObject(),
+				lastMessage: lastMessage
+			};
+
+			const response = ConversationResponseDTO.fromConversation(enrichedConversation, conversation.participants, userId);
 
 			res.json(createSuccessResponse("conversation.conversationRetrieved", response.toJSON(), detectLanguage(req)));
 		} catch (error) {
