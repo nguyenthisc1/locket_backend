@@ -28,7 +28,12 @@ export class ConversationController {
 				return true; // No messages = considered read
 			}
 
-			// Check if user is in readBy array (regardless of who sent it)
+			// If current user sent the last message, consider it "read" (don't count as unread)
+			if (lastMessage.senderId.toString() === userId.toString()) {
+				return true;
+			}
+
+			// If someone else sent the message, check if current user has read it
 			return lastMessage.readBy && lastMessage.readBy.includes(userId);
 		} catch (error) {
 			console.error("Error checking last message read status:", error);
@@ -50,8 +55,11 @@ export class ConversationController {
 				return null;
 			}
 
-			// Calculate isRead status for the current user (regardless of who sent it)
-			const isRead = lastMessage.readBy && lastMessage.readBy.includes(userId);
+			// Calculate isRead status for the current user
+			// If current user sent the message, consider it "read"
+			// If someone else sent it, check if current user has read it
+			const isRead = lastMessage.senderId.toString() === userId.toString() || 
+				(lastMessage.readBy && lastMessage.readBy.includes(userId));
 
 			return {
 				messageId: lastMessage._id,
