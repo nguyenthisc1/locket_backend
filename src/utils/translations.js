@@ -86,6 +86,26 @@ export const TRANSLATIONS = {
 			cannotRemoveSelf: "Cannot remove yourself from conversation",
 			cannotAddSelf: "Cannot add yourself to conversation",
 			participantAlreadyExists: "Participant already exists in conversation",
+			unreadCountRetrieved: "Unread conversation count retrieved successfully",
+			conversationMarkedAsRead: "Conversation marked as read successfully",
+			markAsReadFailed: "Failed to mark conversation as read",
+		},
+
+		// Feed Messages
+		feed: {
+			feedsRetrieved: "Feeds retrieved successfully",
+			feedNotFound: "Feed not found",
+			unauthorizedFeedAccess: "Unauthorized access to feed",
+			feedRetrieved: "Feed retrieved successfully",
+			feedCreated: "Feed created successfully",
+			feedCreationFailed: "Failed to create feed",
+			feedUpdated: "Feed updated successfully",
+			feedUpdateFailed: "Failed to update feed",
+			feedDeleted: "Feed deleted successfully",
+			feedDeleteFailed: "Failed to delete feed",
+			reactionAdded: "Reaction added successfully",
+			reactionRemoved: "Reaction removed successfully",
+			reactionFailed: "Failed to manage reaction",
 		},
 
 		// Message Messages
@@ -204,6 +224,7 @@ export const TRANSLATIONS = {
 			invalidArray: "Invalid array format",
 			invalidObject: "Invalid object format",
 			validationError: "Validation error",
+			missingRequiredFields: "Missing required fields",
 			cannotAddSelf: "Cannot add yourself as friend",
 			cannotBlockSelf: "Cannot block yourself",
 			alreadyFriends: "You are already friends",
@@ -313,6 +334,26 @@ export const TRANSLATIONS = {
 			cannotRemoveSelf: "Không thể xóa chính mình khỏi cuộc trò chuyện",
 			cannotAddSelf: "Không thể thêm chính mình vào cuộc trò chuyện",
 			participantAlreadyExists: "Người tham gia đã tồn tại trong cuộc trò chuyện",
+			unreadCountRetrieved: "Lấy số cuộc trò chuyện chưa đọc thành công",
+			conversationMarkedAsRead: "Đánh dấu cuộc trò chuyện đã đọc thành công",
+			markAsReadFailed: "Đánh dấu cuộc trò chuyện đã đọc thất bại",
+		},
+
+		// Feed Messages
+		feed: {
+			feedsRetrieved: "Lấy danh sách bài viết thành công",
+			feedNotFound: "Không tìm thấy bài viết",
+			unauthorizedFeedAccess: "Không có quyền truy cập bài viết",
+			feedRetrieved: "Lấy thông tin bài viết thành công",
+			feedCreated: "Tạo bài viết thành công",
+			feedCreationFailed: "Tạo bài viết thất bại",
+			feedUpdated: "Cập nhật bài viết thành công",
+			feedUpdateFailed: "Cập nhật bài viết thất bại",
+			feedDeleted: "Xóa bài viết thành công",
+			feedDeleteFailed: "Xóa bài viết thất bại",
+			reactionAdded: "Thêm phản ứng thành công",
+			reactionRemoved: "Xóa phản ứng thành công",
+			reactionFailed: "Quản lý phản ứng thất bại",
 		},
 
 		// Message Messages
@@ -431,6 +472,7 @@ export const TRANSLATIONS = {
 			invalidArray: "Định dạng mảng không hợp lệ",
 			invalidObject: "Định dạng đối tượng không hợp lệ",
 			validationError: "Lỗi xác thực",
+			missingRequiredFields: "Thiếu trường bắt buộc",
 			cannotAddSelf: "Không thể kết bạn với chính mình",
 			cannotBlockSelf: "Không thể chặn chính mình",
 			alreadyFriends: "Đã là bạn bè",
