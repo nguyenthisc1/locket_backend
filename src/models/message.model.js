@@ -297,7 +297,7 @@ messageSchema.statics.getThreadMessages = function(parentMessageId, limit = 50, 
 	.populate('forwardedFrom', 'username avatarUrl');
 };
 
-// Static method to get conversation messages
+// Static method to get conversation messages (offset-based pagination)
 messageSchema.statics.getConversationMessages = function(conversationId, limit = 50, skip = 0) {
 	return this.find({
 		conversationId,
@@ -306,6 +306,27 @@ messageSchema.statics.getConversationMessages = function(conversationId, limit =
 	.sort({ createdAt: -1 })
 	.limit(limit)
 	.skip(skip)
+	.populate('senderId', 'username avatarUrl')
+	.populate('replyTo')
+	.populate('replyInfo.messageId')
+	.populate('forwardedFrom', 'username avatarUrl')
+	.populate('forwardInfo.originalSenderId', 'username avatarUrl');
+};
+
+// Static method to get conversation messages with cursor-based pagination
+messageSchema.statics.getConversationMessagesCursor = function(conversationId, limit = 50, lastCreatedAt = null) {
+	let query = {
+		conversationId,
+		isDeleted: false
+	};
+	
+	if (lastCreatedAt) {
+		query.createdAt = { $lt: new Date(lastCreatedAt) };
+	}
+	
+	return this.find(query)
+	.sort({ createdAt: -1 })
+	.limit(limit)
 	.populate('senderId', 'username avatarUrl')
 	.populate('replyTo')
 	.populate('replyInfo.messageId')

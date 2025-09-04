@@ -9,10 +9,9 @@ import {
 	UpdateConversationDTO,
 } from "../dtos/conversation.dto.js";
 import Conversation from "../models/conversation.model.js";
-import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
-import mongoose from "mongoose";
-import { createSuccessResponse, createErrorResponse, createValidationErrorResponse, detectLanguage } from "../utils/translations.js";
+import User from "../models/user.model.js";
+import { createErrorResponse, createSuccessResponse, createValidationErrorResponse, detectLanguage } from "../utils/translations.js";
 
 export class ConversationController {
 	// Helper method to check if last message is read by user

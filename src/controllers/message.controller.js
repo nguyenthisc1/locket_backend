@@ -20,11 +20,11 @@ export class MessageController {
   static async markMessageAsReadByUser(messageId, userId) {
     try {
       await Message.updateOne(
-        { 
+        {
           _id: messageId,
           readBy: { $nin: [userId] }
         },
-        { 
+        {
           $addToSet: { readBy: userId }
         }
       );
@@ -136,7 +136,7 @@ export class MessageController {
       if (threadInfo) {
         await Message.updateOne(
           { _id: threadInfo.parentMessageId },
-          { 
+          {
             $inc: { 'threadInfo.replyCount': 1 },
             $set: { 'threadInfo.lastReplyAt': new Date() },
             $addToSet: { 'threadInfo.participants': userId }
@@ -159,12 +159,53 @@ export class MessageController {
   }
 
   // Get conversation messages
+  // static async getConversationMessages(req, res) {
+  //   try {
+  //     const { conversationId } = req.params;
+  //     const userId = req.user._id;
+  //     const { page = 1, limit = 50 } = req.query;
+  //     const skip = (page - 1) * limit;
+
+  //     // Verify conversation access
+  //     const conversation = await Conversation.findOne({
+  //       _id: conversationId,
+  //       participants: userId,
+  //       isActive: true
+  //     });
+
+  //     if (!conversation) {
+  //       return res.status(404).json(createErrorResponse("message.conversationNotFound", null, null, detectLanguage(req)));
+  //     }
+
+  //     const messages = await Message.getConversationMessages(conversationId, parseInt(limit), skip);
+
+  //     const total = await Message.countDocuments({
+  //       conversationId,
+  //       isDeleted: false
+  //     });
+
+  //     const pagination = {
+  //       page: parseInt(page),
+  //       limit: parseInt(limit),
+  //       total,
+  //       pages: Math.ceil(total / limit)
+  //     };
+
+  //     const response = MessageListResponseDTO.fromMessages(messages, pagination);
+
+  //     res.json(createSuccessResponse("message.messagesRetrieved", response.toJSON(), detectLanguage(req)));
+  //   } catch (error) {
+  //     console.error('Get messages error:', error);
+  //     res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
+  //   }
+  // }
+
   static async getConversationMessages(req, res) {
     try {
       const { conversationId } = req.params;
       const userId = req.user._id;
-      const { page = 1, limit = 50 } = req.query;
-      const skip = (page - 1) * limit;
+      const { limit = 50, lastCreatedAt } = req.query;
+      const parsedLimit = parseInt(limit);
 
       // Verify conversation access
       const conversation = await Conversation.findOne({
@@ -177,18 +218,17 @@ export class MessageController {
         return res.status(404).json(createErrorResponse("message.conversationNotFound", null, null, detectLanguage(req)));
       }
 
-      const messages = await Message.getConversationMessages(conversationId, parseInt(limit), skip);
+      // Fetch messages with cursor-based pagination
+      const messages = await Message.getConversationMessagesCursor(conversationId, parsedLimit, lastCreatedAt);
 
-      const total = await Message.countDocuments({
-        conversationId,
-        isDeleted: false
-      });
+      // Check if there are more messages (for hasNextPage)
+      const hasNextPage = messages.length === parsedLimit;
+      const nextCursor = hasNextPage ? messages[messages.length - 1].createdAt : null;
 
       const pagination = {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
+        limit: parsedLimit,
+        hasNextPage,
+        nextCursor,
       };
 
       const response = MessageListResponseDTO.fromMessages(messages, pagination);
@@ -200,6 +240,7 @@ export class MessageController {
     }
   }
 
+
   // Get message by ID
   static async getMessage(req, res) {
     try {
@@ -210,11 +251,11 @@ export class MessageController {
         _id: messageId,
         isDeleted: false
       })
-      .populate('senderId', 'username avatarUrl')
-      .populate('replyTo')
-      .populate('replyInfo.messageId')
-      .populate('forwardedFrom', 'username avatarUrl')
-      .populate('forwardInfo.originalSenderId', 'username avatarUrl');
+        .populate('senderId', 'username avatarUrl')
+        .populate('replyTo')
+        .populate('replyInfo.messageId')
+        .populate('forwardedFrom', 'username avatarUrl')
+        .populate('forwardInfo.originalSenderId', 'username avatarUrl');
       console.log("🚀 ~ MessageController ~ getMessage ~ message:", message)
 
       if (!message) {
@@ -571,7 +612,7 @@ export class MessageController {
       // Update parent message's thread info
       await Message.updateOne(
         { _id: parentMessage._id },
-        { 
+        {
           $inc: { 'threadInfo.replyCount': 1 },
           $set: { 'threadInfo.lastReplyAt': new Date() },
           $addToSet: { 'threadInfo.participants': userId }
@@ -627,11 +668,11 @@ export class MessageController {
         replyTo: messageId,
         isDeleted: false
       })
-      .populate('senderId', 'username avatarUrl')
-      .populate('replyTo')
-      .sort({ createdAt: 1 })
-      .limit(parseInt(limit))
-      .skip(skip);
+        .populate('senderId', 'username avatarUrl')
+        .populate('replyTo')
+        .sort({ createdAt: 1 })
+        .limit(parseInt(limit))
+        .skip(skip);
 
       const total = await Message.countDocuments({
         replyTo: messageId,
