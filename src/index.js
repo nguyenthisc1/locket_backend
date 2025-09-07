@@ -1,11 +1,13 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import { createServer } from "http";
 import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
 import connectDB from "./config/db.js";
 import swaggerSpec from "./docs/swagger.js";
 import validateEnv from "./utils/validateEnv.js";
+import SocketManager from "./utils/socket.js";
 
 import authRoutes from "./routes/auth.routes.js";
 import conversationRoutes from "./routes/conversation.routes.js";
@@ -15,13 +17,16 @@ import uploadRoutes from "./routes/upload.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 
-
 dotenv.config();
 validateEnv();
 
 const app = express();
+const server = createServer(app); // Create HTTP server
 const PORT = validateEnv.PORT || 8000;
 const API_VERSION = "api/v1";
+
+// Initialize Socket.IO
+let socketManager;
 
 // Middleware
 app.use(
@@ -30,16 +35,9 @@ app.use(
 		credentials: true,
 	})
 );
-app.use(express.json({ limit: "50mb" })); // Increased limit for image uploads
+app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-app.use(cookieParser()); // Enable cookie parsing
-// app.use(cors({
-// 	origin: `http://localhost:${PORT}`, 
-// 	credentials: true
-//   }));
-//   app.use(express.json({ limit: '50mb' })); // Increased limit for image uploads
-//   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-  
+app.use(cookieParser());
 
 // API Documentation
 app.use(`/${API_VERSION}/docs`, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -53,12 +51,11 @@ app.use(`/${API_VERSION}/conversation`, conversationRoutes);
 app.use(`/${API_VERSION}/message`, messageRoutes);
 app.use(`/${API_VERSION}/notifications`, notificationRoutes);
 
-// Health check route
+// Health check routes
 app.get("/", (req, res) => {
 	res.send("Locket Backend API is running!");
 });
 
-// Health check endpoint for Render
 app.get("/api/health", (req, res) => {
 	res.status(200).json({
 		status: "OK",
@@ -78,8 +75,16 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
 	try {
 		await connectDB();
-		app.listen(PORT, () => {
-			console.log(`Server is running on host http://localhost:${PORT}/${API_VERSION}`);
+		
+		// Initialize Socket.IO after server starts
+		socketManager = new SocketManager(server);
+		
+		// Make socketManager globally available
+		global.socketManager = socketManager;
+		
+		server.listen(PORT, () => {
+			console.log(`Server is running on http://localhost:${PORT}/${API_VERSION}`);
+			console.log(`Socket.IO server is ready and listening`);
 		});
 	} catch (err) {
 		console.error("Failed to connect to database:", err);
@@ -88,3 +93,5 @@ const startServer = async () => {
 };
 
 startServer();
+
+export { socketManager };
