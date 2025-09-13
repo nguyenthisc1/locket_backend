@@ -1,203 +1,265 @@
 import { Server } from 'socket.io';
-import jwt from 'jsonwebtoken';
-import User from '../models/user.model.js';
+import SocketAuthMiddleware from '../middleware/socket.auth.middleware.js';
 
-export class SocketManager {
-	constructor(server) {
-		this.io = new Server(server, {
-			cors: {
-				origin: process.env.CLIENT_URL || "http://localhost:3000",
-				methods: ["GET", "POST"],
-				credentials: true
-			},
-			transports: ['websocket', 'polling']
-		});
+class SocketManager {
+  constructor(server) {
+    this.io = new Server(server, {
+      // cors: {
+      //   origin: process.env.CLIENT_URL || "*",
+      //   methods: ["GET", "POST"],
+      //   credentials: true
+      // },
+      transports: ['websocket']
+    });
 
-		this.userSockets = new Map(); // userId -> socketId
-		this.socketUsers = new Map(); // socketId -> userId
+    this.userSockets = new Map(); // userId -> socketId
+    this.socketUsers = new Map(); // socketId -> userId
 
-		this.setupMiddleware();
-		this.setupEventHandlers();
-	}
+    this.setupMiddleware();
+    this.setupEventHandlers();
+  }
 
-	setupMiddleware() {
-		// Authentication middleware
-		this.io.use(async (socket, next) => {
-			try {
-				const token = socket.handshake.auth.token || 
-							 socket.handshake.headers.authorization?.split(' ')[1];
+  setupMiddleware() {
+    // Apply authentication middleware in order
+    this.io.use(SocketAuthMiddleware.authenticate());
+    // this.io.use(SocketAuthMiddleware.validateOrigin([
+    //   process.env.CLIENT_URL,
+    //   '*',
+    //   // Add other allowed origins
+    // ]));
+    // this.io.use(SocketAuthMiddleware.rateLimit({
+    //   windowMs: 15 * 60 * 1000, // 15 minutes
+    //   maxConnections: 10 // max 10 connections per user per window
+    // }));
+    this.io.use(SocketAuthMiddleware.logger());
 
-				if (!token) {
-					return next(new Error('Authentication error: No token provided'));
-				}
+  }
 
-				const decoded = jwt.verify(token, process.env.JWT_SECRET);
-				const user = await User.findById(decoded.id).select('-passwordHash');
+  setupEventHandlers() {
+    this.io.on('connection', (socket) => {
+      console.log(`✅ User connected: ${socket.userId}`);
 
-				if (!user) {
-					return next(new Error('Authentication error: User not found'));
-				}
+      // Store socket mapping
+      this.userSockets.set(socket.userId, socket.id);
+      this.socketUsers.set(socket.id, socket.userId);
 
-				socket.userId = user._id.toString();
-				socket.user = user;
-				next();
-			} catch (error) {
-				next(new Error('Authentication error: Invalid token'));
-			}
-		});
-	}
+      // Join user to their personal room
+      socket.join(`user:${socket.userId}`);
 
-	setupEventHandlers() {
-		this.io.on('connection', (socket) => {
-			console.log(`User connected: ${socket.userId}`);
+      // Auto-join user to their conversation rooms
+      // this.joinUserToExistingConversations(socket);
 
-			// Store socket mapping
-			this.userSockets.set(socket.userId, socket.id);
-			this.socketUsers.set(socket.id, socket.userId);
+      // Handle disconnection
+      socket.on('disconnect', (reason) => {
+        console.log(`❌ User disconnected: ${socket.userId} - Reason: ${reason}`);
+        this.userSockets.delete(socket.userId);
+        this.socketUsers.delete(socket.id);
+        
+        // Emit offline status to friends
+        this.handleUserOffline(socket);
+      });
 
-			// Join user to their personal room
-			socket.join(`user:${socket.userId}`);
+      // Handle typing events
+      socket.on('typing:start', (data) => {
+        this.handleTypingStart(socket, data);
+      });
 
-			// Handle disconnection
-			socket.on('disconnect', () => {
-				console.log(`User disconnected: ${socket.userId}`);
-				this.userSockets.delete(socket.userId);
-				this.socketUsers.delete(socket.id);
-			});
+      socket.on('typing:stop', (data) => {
+        this.handleTypingStop(socket, data);
+      });
 
-			// Handle typing events
-			socket.on('typing:start', (data) => {
-				this.handleTypingStart(socket, data);
-			});
+      // Handle online status
+      socket.on('user:online', () => {
+        this.handleUserOnline(socket);
+      });
 
-			socket.on('typing:stop', (data) => {
-				this.handleTypingStop(socket, data);
-			});
+      // Handle message read receipts
+      socket.on('message:read', (data) => {
+        this.handleMessageRead(socket, data);
+      });
 
-			// Handle online status
-			socket.on('user:online', () => {
-				this.handleUserOnline(socket);
-			});
+      // Handle conversation join/leave
+      socket.on('conversation:join', (data) => {
+        this.handleConversationJoin(socket, data);
+      });
 
-			// Handle message read receipts
-			socket.on('message:read', (data) => {
-				this.handleMessageRead(socket, data);
-			});
+      socket.on('conversation:leave', (data) => {
+        this.handleConversationLeave(socket, data);
+      });
 
-			// Handle upload progress
-			socket.on('upload:progress', (data) => {
-				this.handleUploadProgress(socket, data);
-			});
-		});
-	}
+      // Handle upload progress
+      socket.on('upload:progress', (data) => {
+        this.handleUploadProgress(socket, data);
+      });
 
-	// Send notification to specific user
-	sendNotification(userId, notification) {
-		const socketId = this.userSockets.get(userId);
-		if (socketId) {
-			this.io.to(socketId).emit('notification:new', notification);
-		}
-	}
+      // Emit online status to friends
+      this.handleUserOnline(socket);
+    });
+  }
 
-	// Send notification to multiple users
-	sendNotificationToUsers(userIds, notification) {
-		userIds.forEach(userId => {
-			this.sendNotification(userId, notification);
-		});
-	}
+  // === MISSING METHODS - ADD THESE ===
 
-	// Send message to conversation participants
-	sendMessageToConversation(conversationId, message, excludeUserId = null) {
-		this.io.to(`conversation:${conversationId}`).emit('message:new', {
-			conversationId,
-			message,
-			excludeUserId
-		});
-	}
+  // Send notification to specific user
+  sendNotification(userId, notification) {
+    const socketId = this.userSockets.get(userId.toString());
+    if (socketId) {
+      this.io.to(socketId).emit('notification:new', notification);
+    }
+  }
 
-	// Send typing indicator
-	sendTypingIndicator(conversationId, userId, isTyping) {
-		this.io.to(`conversation:${conversationId}`).emit('typing:update', {
-			conversationId,
-			userId,
-			isTyping
-		});
-	}
+  // Send notification to multiple users
+  sendNotificationToUsers(userIds, notification) {
+    userIds.forEach(userId => {
+      this.sendNotification(userId.toString(), notification);
+    });
+  }
 
-	// Send upload progress
-	sendUploadProgress(userId, uploadId, progress) {
-		const socketId = this.userSockets.get(userId);
-		if (socketId) {
-			this.io.to(socketId).emit('upload:progress', {
-				uploadId,
-				progress
-			});
-		}
-	}
+  // Send message to conversation participants
+  sendMessageToConversation(conversationId, message, excludeUserId = null) {
+    this.io.to(`conversation:${conversationId}`).emit('message:new', {
+      conversationId,
+      message,
+      excludeUserId
+    });
+  }
 
-	// Join user to conversation room
-	joinConversation(userId, conversationId) {
-		const socketId = this.userSockets.get(userId);
-		if (socketId) {
-			this.io.sockets.sockets.get(socketId).join(`conversation:${conversationId}`);
-		}
-	}
+  // Send typing indicator
+  sendTypingIndicator(conversationId, userId, isTyping) {
+    this.io.to(`conversation:${conversationId}`).emit('typing:update', {
+      conversationId,
+      userId,
+      isTyping
+    });
+  }
 
-	// Leave conversation room
-	leaveConversation(userId, conversationId) {
-		const socketId = this.userSockets.get(userId);
-		if (socketId) {
-			this.io.sockets.sockets.get(socketId).leave(`conversation:${conversationId}`);
-		}
-	}
+  // Send upload progress
+  sendUploadProgress(userId, uploadId, progress) {
+    const socketId = this.userSockets.get(userId.toString());
+    if (socketId) {
+      this.io.to(socketId).emit('upload:progress', {
+        uploadId,
+        progress
+      });
+    }
+  }
 
-	// Handle typing start
-	handleTypingStart(socket, data) {
-		const { conversationId } = data;
-		this.sendTypingIndicator(conversationId, socket.userId, true);
-	}
+  // Join user to conversation room
+  joinConversation(userId, conversationId) {
+    const socketId = this.userSockets.get(userId.toString());
+    if (socketId) {
+      const socket = this.io.sockets.sockets.get(socketId);
+      if (socket) {
+        socket.join(`conversation:${conversationId}`);
+      }
+    }
+  }
 
-	// Handle typing stop
-	handleTypingStop(socket, data) {
-		const { conversationId } = data;
-		this.sendTypingIndicator(conversationId, socket.userId, false);
-	}
+  // Leave conversation room
+  leaveConversation(userId, conversationId) {
+    const socketId = this.userSockets.get(userId.toString());
+    if (socketId) {
+      const socket = this.io.sockets.sockets.get(socketId);
+      if (socket) {
+        socket.leave(`conversation:${conversationId}`);
+      }
+    }
+  }
 
-	// Handle user online
-	handleUserOnline(socket) {
-		// Broadcast to friends that user is online
-		this.io.emit('user:status', {
-			userId: socket.userId,
-			status: 'online',
-			timestamp: new Date()
-		});
-	}
+  // Auto-join user to their existing conversations
+  async joinUserToExistingConversations(socket) {
+    try {
+      const { default: Conversation } = await import('../models/conversation.model.js');
+      
+      const conversations = await Conversation.find({
+        participants: socket.userId,
+        isActive: true
+      }).select('_id');
 
-	// Handle message read
-	handleMessageRead(socket, data) {
-		const { messageId, conversationId } = data;
-		this.io.to(`conversation:${conversationId}`).emit('message:read', {
-			messageId,
-			userId: socket.userId,
-			timestamp: new Date()
-		});
-	}
+      conversations.forEach(conversation => {
+        socket.join(`conversation:${conversation._id}`);
+      });
 
-	// Handle upload progress
-	handleUploadProgress(socket, data) {
-		const { uploadId, progress } = data;
-		this.sendUploadProgress(socket.userId, uploadId, progress);
-	}
+      console.log(`User ${socket.userId} joined ${conversations.length} conversation rooms`);
+    } catch (error) {
+      console.error('Error joining user to conversations:', error);
+    }
+  }
 
-	// Get online users
-	getOnlineUsers() {
-		return Array.from(this.userSockets.keys());
-	}
+  // Handle conversation join with validation
+  handleConversationJoin(socket, data) {
+    const { conversationId } = data;
+    if (!conversationId) return;
 
-	// Check if user is online
-	isUserOnline(userId) {
-		return this.userSockets.has(userId);
-	}
+    socket.join(`conversation:${conversationId}`);
+    console.log(`User ${socket.userId} joined conversation ${conversationId}`);
+  }
+
+  // Handle conversation leave
+  handleConversationLeave(socket, data) {
+    const { conversationId } = data;
+    if (!conversationId) return;
+
+    socket.leave(`conversation:${conversationId}`);
+    console.log(`User ${socket.userId} left conversation ${conversationId}`);
+  }
+
+  // Handle typing start
+  handleTypingStart(socket, data) {
+    const { conversationId } = data;
+    this.sendTypingIndicator(conversationId, socket.userId, true);
+  }
+
+  // Handle typing stop
+  handleTypingStop(socket, data) {
+    const { conversationId } = data;
+    this.sendTypingIndicator(conversationId, socket.userId, false);
+  }
+
+  // Handle user online
+  handleUserOnline(socket) {
+    // Broadcast to friends that user is online
+    this.io.emit('user:status', {
+      userId: socket.userId,
+      status: 'online',
+      timestamp: new Date()
+    });
+  }
+
+  // Handle user offline status
+  handleUserOffline(socket) {
+    // Broadcast to friends that user is offline
+    this.io.emit('user:status', {
+      userId: socket.userId,
+      status: 'offline',
+      timestamp: new Date()
+    });
+  }
+
+  // Handle message read
+  handleMessageRead(socket, data) {
+    const { messageId, conversationId } = data;
+    this.io.to(`conversation:${conversationId}`).emit('message:read', {
+      messageId,
+      userId: socket.userId,
+      timestamp: new Date()
+    });
+  }
+
+  // Handle upload progress
+  handleUploadProgress(socket, data) {
+    const { uploadId, progress } = data;
+    this.sendUploadProgress(socket.userId, uploadId, progress);
+  }
+
+  // Get online users
+  getOnlineUsers() {
+    return Array.from(this.userSockets.keys());
+  }
+
+  // Check if user is online
+  isUserOnline(userId) {
+    return this.userSockets.has(userId.toString());
+  }
 }
 
-export default SocketManager;
+export default SocketManager

@@ -1,9 +1,7 @@
-import Message from '../models/message.model.js';
 import Conversation from '../models/conversation.model.js';
 import User from '../models/user.model.js';
-import { createSuccessResponse, detectLanguage } from '../utils/translations.js';
 
-export class SocketService {
+class SocketService {
     constructor(socketManager) {
         this.socketManager = socketManager;
     }
@@ -19,17 +17,20 @@ export class SocketService {
 
             const room = `conversation:${conversationId}`;
 
-            if (excludeUserId) {
-                const sockets = await this.socketManager.io.in(room).fetchSockets();
-                sockets.forEach(socket => {
-                    const userId = this.socketManager.socketUsers.get(socket.id);
-                    if (userId && userId.toString() !== excludeUserId.toString()) {
-                        socket.emit("new_message", message);
-                    }
-                });
-            } else {
-                this.socketManager.io.to(room).emit("new_message", message);
-            }
+            // if (excludeUserId) {
+            //     const sockets = await this.socketManager.io.in(room).fetchSockets();
+            //     sockets.forEach(socket => {
+            //         const userId = this.socketManager.socketUsers.get(socket.id);
+            //         if (userId && userId.toString() !== excludeUserId.toString()) {
+            //             socket.emit("new_message", message);
+            //         }
+            //     });
+            //     console.log('test new message' + message);
+            // } else {
+
+            // }
+            console.log(`🔥 Emit new_message to room=${room}`, message);
+            this.socketManager.io.to(room).emit("new_message", message);
 
             console.log(`Message sent to conversation ${conversationId}`);
         } catch (error) {
