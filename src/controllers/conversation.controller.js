@@ -20,8 +20,8 @@ export class ConversationController {
 			const lastMessage = await Message.findOne({
 				conversationId: conversationId
 			})
-			.sort({ createdAt: -1 })
-			.lean();
+				.sort({ createdAt: -1 })
+				.lean();
 
 			if (!lastMessage) {
 				return true; // No messages = considered read
@@ -46,9 +46,9 @@ export class ConversationController {
 			const lastMessage = await Message.findOne({
 				conversationId: conversationId
 			})
-			.sort({ createdAt: -1 })
-			.populate("senderId", "username avatarUrl")
-			.lean();
+				.sort({ createdAt: -1 })
+				.populate("senderId", "username avatarUrl")
+				.lean();
 
 			if (!lastMessage) {
 				return null;
@@ -57,7 +57,7 @@ export class ConversationController {
 			// Calculate isRead status for the current user
 			// If current user sent the message, consider it "read"
 			// If someone else sent it, check if current user has read it
-			const isRead = lastMessage.senderId.toString() === userId.toString() || 
+			const isRead = lastMessage.senderId.toString() === userId.toString() ||
 				(lastMessage.readBy && lastMessage.readBy.includes(userId));
 
 			return {
@@ -177,6 +177,20 @@ export class ConversationController {
 			});
 
 			await conversation.save();
+
+			// After successful conversation creation, add:
+			// if (global.socketManager && conversation.participants) {
+			// 	conversation.participants.forEach(participantId => {
+			// 		global.socketManager.joinConversation(participantId.toString(), conversation._id);
+			// 	});
+			// }
+			
+			if (global.socketService) {
+				await global.socketService.sendNewConversation(
+				  conversation,
+				  conversation.participants
+				);
+			}
 
 			// Populate participants
 			await conversation.populate("participants", "username avatarUrl email");
