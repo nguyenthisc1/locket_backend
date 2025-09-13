@@ -149,9 +149,10 @@ const messageSchema = new mongoose.Schema({
 	reactions: [reactionSchema],
 	
 	// Message status
-	isRead: { 
-		type: Boolean, 
-		default: false 
+	status: {
+		type: String,
+		enum: ["sent", "delivered", "read"], 
+		default: "sent"
 	},
 	readBy: [{
 		type: mongoose.Schema.Types.ObjectId,
@@ -209,6 +210,7 @@ messageSchema.index({ type: 1 });
 messageSchema.index({ 'reactions.userId': 1 });
 messageSchema.index({ isDeleted: 1 });
 messageSchema.index({ isPinned: 1 });
+messageSchema.index({ status: 1 });
 
 // Virtual for reaction count
 messageSchema.virtual('reactionCount').get(function() {
@@ -279,8 +281,21 @@ messageSchema.methods.togglePin = function() {
 messageSchema.methods.markAsReadBy = function(userId) {
 	if (!this.readBy.includes(userId)) {
 		this.readBy.push(userId);
+		// Update status to 'read' if not already
+		if (this.status !== 'read') {
+			this.status = 'read';
+		}
 	}
 	return this.save();
+};
+
+// Method to update message status
+messageSchema.methods.updateStatus = function(newStatus) {
+	if (['sent', 'delivered', 'read'].includes(newStatus)) {
+		this.status = newStatus;
+		return this.save();
+	}
+	throw new Error('Invalid status');
 };
 
 // Static method to get thread messages

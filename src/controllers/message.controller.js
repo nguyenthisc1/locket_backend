@@ -8,12 +8,11 @@ import {
   PinMessageDTO,
   ReplyMessageDTO,
   SearchMessagesDTO,
-  ThreadMessagesDTO,
   UpdateMessageDTO
 } from '../dtos/message.dto.js';
 import Conversation from '../models/conversation.model.js';
 import Message from '../models/message.model.js';
-import { createSuccessResponse, createErrorResponse, createValidationErrorResponse, detectLanguage } from '../utils/translations.js';
+import { createErrorResponse, createSuccessResponse, createValidationErrorResponse, detectLanguage } from '../utils/translations.js';
 
 export class MessageController {
   // Helper method to mark message as read by user
@@ -25,11 +24,93 @@ export class MessageController {
           readBy: { $nin: [userId] }
         },
         {
-          $addToSet: { readBy: userId }
+          $addToSet: { readBy: userId },
+          $set: { status: 'read' }
         }
       );
     } catch (error) {
       console.error('Error marking message as read:', error);
+    }
+  }
+
+  static async markMessageAsRead(req, res) {
+    try {
+      const { messageId } = req.params;
+      const userId = req.user._id;
+
+      // Update message read status
+      await MessageController.markMessageAsReadByUser(messageId, userId);
+
+      // Get message to find conversation
+      const message = await Message.findById(messageId);
+      if (message) {
+        // Send socket event
+        if (global.socketService) {
+          await global.socketService.sendMessageReadReceipt(
+            messageId,
+            message.conversationId,
+            userId
+          );
+        }
+      }
+
+      res.json(createSuccessResponse("message.messageMarkedAsRead", null, detectLanguage(req)));
+    } catch (error) {
+      console.error('Mark message as read error:', error);
+      res.status(500).json(createErrorResponse("message.markAsReadFailed", error.message, null, detectLanguage(req)));
+    }
+  }
+
+  // Update message status (for delivered, etc.)
+  static async updateMessageStatus(req, res) {
+    try {
+      const { messageId } = req.params;
+      const { status } = req.body;
+      const userId = req.user._id;
+
+      if (!['sent', 'delivered', 'read'].includes(status)) {
+        return res.status(400).json(createErrorResponse("message.invalidStatus", null, null, detectLanguage(req)));
+      }
+
+      // Find the message and verify user access
+      const message = await Message.findById(messageId);
+      if (!message) {
+        return res.status(404).json(createErrorResponse("message.messageNotFound", null, null, detectLanguage(req)));
+      }
+
+      // Check if user has access to this message's conversation
+      const conversation = await Conversation.findOne({
+        _id: message.conversationId,
+        participants: userId,
+        isActive: true
+      });
+
+      if (!conversation) {
+        return res.status(403).json(createErrorResponse("message.unauthorizedAccess", null, null, detectLanguage(req)));
+      }
+
+      // Update status
+      await message.updateStatus(status);
+
+      // If status is 'read', also add user to readBy array
+      if (status === 'read') {
+        await MessageController.markMessageAsReadByUser(messageId, userId);
+      }
+
+      // Send socket event for status update
+      if (global.socketService) {
+        await global.socketService.sendMessageStatusUpdate(
+          messageId,
+          message.conversationId,
+          status,
+          userId
+        );
+      }
+
+      res.json(createSuccessResponse("message.statusUpdated", { messageId, status }, detectLanguage(req)));
+    } catch (error) {
+      console.error('Update message status error:', error);
+      res.status(500).json(createErrorResponse("message.statusUpdateFailed", error.message, null, detectLanguage(req)));
     }
   }
 
@@ -116,6 +197,7 @@ export class MessageController {
         forwardedFrom: createDTO.forwardedFrom,
         forwardInfo,
         threadInfo,
+        status: 'sent', // Default status when message is created
         metadata: {
           ...createDTO.metadata,
           clientMessageId: createDTO.metadata?.clientMessageId,
@@ -129,8 +211,26 @@ export class MessageController {
 
       await message.save();
 
+      // Populate message data
+      await message.populate('senderId', 'username avatarUrl');
+      await message.populate('replyTo');
+      await message.populate('forwardedFrom', 'username avatarUrl');
+
+      const response = MessageResponseDTO.fromMessage(message, message.senderId);
+
       // Update conversation's last message
       await conversation.updateLastMessage(message);
+
+      // Update message status to 'delivered' after successful save
+      await message.updateStatus('delivered');
+
+      if (global.socketService) {
+        await global.socketService.sendNewMessage(
+          message.conversationId,
+          response.toJSON(),
+          userId
+        );
+      }
 
       // Update thread info if this is a thread message
       if (threadInfo) {
@@ -143,13 +243,6 @@ export class MessageController {
           }
         );
       }
-
-      // Populate message data
-      await message.populate('senderId', 'username avatarUrl');
-      await message.populate('replyTo');
-      await message.populate('forwardedFrom', 'username avatarUrl');
-
-      const response = MessageResponseDTO.fromMessage(message, message.senderId);
 
       res.status(201).json(createSuccessResponse("message.messageSent", response.toJSON(), detectLanguage(req)));
     } catch (error) {

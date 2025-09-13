@@ -1,32 +1,34 @@
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import { createServer } from "http";
-import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
 import connectDB from "./config/db.js";
 import swaggerSpec from "./docs/swagger.js";
-import validateEnv from "./utils/validateEnv.js";
+import SocketService from "./services/socket.service.js"; 
 import SocketManager from "./utils/socket.js";
+import validateEnv from "./utils/validateEnv.js";
 
 import authRoutes from "./routes/auth.routes.js";
 import conversationRoutes from "./routes/conversation.routes.js";
-import messageRoutes from "./routes/message.routes.js";
 import feedRoutes from "./routes/feed.routes.js";
+import messageRoutes from "./routes/message.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import userRoutes from "./routes/user.routes.js";
-import notificationRoutes from "./routes/notification.routes.js";
 
 dotenv.config();
 validateEnv();
 
 const app = express();
-const server = createServer(app); // Create HTTP server
+const server = createServer(app);
 const PORT = validateEnv.PORT || 8000;
 const API_VERSION = "api/v1";
 
 // Initialize Socket.IO
 let socketManager;
+let socketService; 
 
 // Middleware
 app.use(
@@ -78,13 +80,16 @@ const startServer = async () => {
 		
 		// Initialize Socket.IO after server starts
 		socketManager = new SocketManager(server);
+		socketService = new SocketService(socketManager);
 		
-		// Make socketManager globally available
+		// Make both globally available
 		global.socketManager = socketManager;
+		global.socketService = socketService;
 		
 		server.listen(PORT, () => {
 			console.log(`Server is running on http://localhost:${PORT}/${API_VERSION}`);
 			console.log(`Socket.IO server is ready and listening`);
+			console.log(`Socket service initialized`);
 		});
 	} catch (err) {
 		console.error("Failed to connect to database:", err);
@@ -94,4 +99,4 @@ const startServer = async () => {
 
 startServer();
 
-export { socketManager };
+export { socketManager, socketService };

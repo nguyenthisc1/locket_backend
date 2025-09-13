@@ -140,6 +140,11 @@ export const TRANSLATIONS = {
 			parentMessageNotFound: "Parent message not found",
 			conversationNotFound: "Conversation not found",
 			invalidConversationId: "Invalid conversation ID",
+			messageMarkedAsRead: "Message marked as read successfully",
+			markAsReadFailed: "Failed to mark message as read",
+			statusUpdated: "Message status updated successfully",
+			statusUpdateFailed: "Failed to update message status",
+			invalidStatus: "Invalid message status",
 		},
 
 		// Add to your translations object
@@ -388,6 +393,11 @@ export const TRANSLATIONS = {
 			parentMessageNotFound: "Không tìm thấy tin nhắn gốc",
 			conversationNotFound: "Không tìm thấy cuộc trò chuyện",
 			invalidConversationId: "ID cuộc trò chuyện không hợp lệ",
+			messageMarkedAsRead: "Đánh dấu tin nhắn đã đọc thành công",
+			markAsReadFailed: "Đánh dấu tin nhắn đã đọc thất bại",
+			statusUpdated: "Cập nhật trạng thái tin nhắn thành công",
+			statusUpdateFailed: "Cập nhật trạng thái tin nhắn thất bại",
+			invalidStatus: "Trạng thái tin nhắn không hợp lệ",
 		},
 
 		// Add to your translations object
