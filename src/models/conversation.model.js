@@ -9,16 +9,29 @@ const conversationSchema = new mongoose.Schema(
 			default: null, // null for direct messages, name for group chats
 		},
 
-		// Participants
-		participants: {
-			type: [
-				{
+		// Participants with read tracking
+		participants: [
+			{
+				userId: {
 					type: mongoose.Schema.Types.ObjectId,
 					ref: "User",
+					required: true,
 				},
-			],
-			required: true,
-		},
+				lastReadMessageId: {
+					type: mongoose.Schema.Types.ObjectId,
+					ref: "Message",
+					default: null,
+				},
+				lastReadAt: {
+					type: Date,
+					default: null,
+				},
+				joinedAt: {
+					type: Date,
+					default: Date.now,
+				},
+			},
+		],
 
 		// Group chat specific fields
 		isGroup: {
@@ -105,11 +118,12 @@ const conversationSchema = new mongoose.Schema(
 );
 
 // Indexes for better performance
-conversationSchema.index({ participants: 1 });
+conversationSchema.index({ "participants.userId": 1 });
 conversationSchema.index({ isGroup: 1 });
 conversationSchema.index({ parentConversation: 1 });
 conversationSchema.index({ "lastMessage.timestamp": -1 });
 conversationSchema.index({ "threadInfo.lastThreadMessage": -1 });
+conversationSchema.index({ "participants.lastReadMessageId": 1 });
 
 // Virtual for unread count
 conversationSchema.virtual("unreadCount").get(function () {
@@ -118,15 +132,31 @@ conversationSchema.virtual("unreadCount").get(function () {
 
 // Method to add participant
 conversationSchema.methods.addParticipant = function (userId) {
-	if (!this.participants.includes(userId)) {
-		this.participants.push(userId);
+	const existingParticipant = this.participants.find(p => p.userId.equals(userId));
+	if (!existingParticipant) {
+		this.participants.push({
+			userId: userId,
+			lastReadMessageId: null,
+			lastReadAt: null,
+			joinedAt: new Date()
+		});
 	}
 	return this.save();
 };
 
 // Method to remove participant
 conversationSchema.methods.removeParticipant = function (userId) {
-	this.participants = this.participants.filter((id) => !id.equals(userId));
+	this.participants = this.participants.filter((p) => !p.userId.equals(userId));
+	return this.save();
+};
+
+// Method to update participant's last read message
+conversationSchema.methods.updateParticipantLastRead = function (userId, messageId) {
+	const participant = this.participants.find(p => p.userId.equals(userId));
+	if (participant) {
+		participant.lastReadMessageId = messageId;
+		participant.lastReadAt = new Date();
+	}
 	return this.save();
 };
 

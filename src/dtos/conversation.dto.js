@@ -255,18 +255,36 @@ export class ConversationResponseDTO {
     
     if (this.isGroup) {
       // For group conversations, participants is an array
-      this.participants = participants;
+      this.participants = participants.map(p => ({
+        userId: p.userId || p.user?._id || p._id,
+        username: p.user?.username || p.username,
+        avatarUrl: p.user?.avatarUrl || p.avatarUrl,
+        email: p.user?.email || p.email,
+        lastReadMessageId: p.lastReadMessageId || null,
+        lastReadAt: p.lastReadAt || null,
+        joinedAt: p.joinedAt || new Date()
+      }));
       
       // Generate name from all participant names if no custom name is set
       if (!conversation.name) {
-        this.name = participants.map(p => p.username).join(', ');
+        this.name = this.participants.map(p => p.username).join(', ');
       } else {
         this.name = conversation.name;
       }
     } else {
-      // For non-group conversations, participants is a single object (the other user)
-      const otherParticipant = participants.find(p => p._id.toString() !== currentUserId?.toString()) || participants[0];
-      this.participants = otherParticipant;
+      // For non-group conversations, participants is still an array but we use the other user's name
+      this.participants = participants.map(p => ({
+        userId: p.userId || p.user?._id || p._id,
+        username: p.user?.username || p.username,
+        avatarUrl: p.user?.avatarUrl || p.avatarUrl,
+        email: p.user?.email || p.email,
+        lastReadMessageId: p.lastReadMessageId || null,
+        lastReadAt: p.lastReadAt || null,
+        joinedAt: p.joinedAt || new Date()
+      }));
+      
+      // Find the other participant (not current user) for the conversation name
+      const otherParticipant = this.participants.find(p => p.userId?.toString() !== currentUserId?.toString()) || this.participants[0];
       
       // Name is the other participant's username
       this.name = otherParticipant?.username || conversation.name;

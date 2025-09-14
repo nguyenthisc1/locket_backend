@@ -14,6 +14,25 @@ import User from "../models/user.model.js";
 import { createErrorResponse, createSuccessResponse, createValidationErrorResponse, detectLanguage } from "../utils/translations.js";
 
 export class ConversationController {
+	// Helper method to migrate old participant structure to new structure
+	static migrateParticipantsStructure(conversation) {
+		if (conversation.participants && conversation.participants.length > 0) {
+			// Check if it's the old structure (array of ObjectIds)
+			const firstParticipant = conversation.participants[0];
+			if (!firstParticipant.userId && !firstParticipant.user) {
+				// Old structure - migrate it
+				conversation.participants = conversation.participants.map(participantId => ({
+					userId: participantId._id || participantId,
+					user: participantId, // If populated, this will be the user object
+					lastReadMessageId: null,
+					lastReadAt: null,
+					joinedAt: new Date()
+				}));
+			}
+		}
+		return conversation;
+	}
+
 	// Helper method to check if last message is read by user
 	static async isLastMessageRead(conversationId, userId) {
 		try {
@@ -79,11 +98,14 @@ export class ConversationController {
 		try {
 			const userId = req.user._id;
 
-			// Get all user's conversations
-			const conversations = await Conversation.find({
-				participants: userId,
-				isActive: true
-			}).select('_id').lean();
+		// Get all user's conversations (support both old and new structure)
+		const conversations = await Conversation.find({
+			$or: [
+				{ "participants.userId": userId },
+				{ "participants": userId }
+			],
+			isActive: true
+		}).select('_id').lean();
 
 			let unreadCount = 0;
 
@@ -108,12 +130,15 @@ export class ConversationController {
 			const { conversationId } = req.params;
 			const userId = req.user._id;
 
-			// Verify conversation exists and user is participant
-			const conversation = await Conversation.findOne({
-				_id: conversationId,
-				participants: userId,
-				isActive: true,
-			});
+		// Verify conversation exists and user is participant (support both structures)
+		const conversation = await Conversation.findOne({
+			_id: conversationId,
+			$or: [
+				{ "participants.userId": userId },
+				{ "participants": userId }
+			],
+			isActive: true,
+		});
 
 			if (!conversation) {
 				return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
@@ -131,16 +156,28 @@ export class ConversationController {
 			);
 
 			// Mark all unread messages in this conversation as read by the user
-			// Now includes user's own messages since isRead defaults to false for everyone
-			await Message.updateMany(
+			const updateResult = await Message.updateMany(
 				{
 					conversationId: conversationId,
-					readBy: { $nin: [userId] } // Only update messages not already read by user
+					readBy: { $nin: [userId] },
+					status: { $in: ['delivered', 'sent'] } // Only update messages not already read by user
 				},
 				{
-					$addToSet: { readBy: userId } // Add user to readBy array
+					$addToSet: { readBy: userId },
+					$set: { status: 'read' } // Update status to read
 				}
 			);
+
+			// Update participant's lastReadMessageId if any messages were marked as read
+			if (updateResult.modifiedCount > 0) {
+				const lastMessage = await Message.findOne({
+					conversationId: conversationId
+				}).sort({ createdAt: -1 });
+
+				if (lastMessage) {
+					await conversation.updateParticipantLastRead(userId, lastMessage._id);
+				}
+			}
 
 			res.json(createSuccessResponse("conversation.conversationMarkedAsRead", null, detectLanguage(req)));
 		} catch (error) {
@@ -159,8 +196,23 @@ export class ConversationController {
 			const createDTO = new CreateConversationDTO(req.body);
 			const userId = req.user._id;
 
-			if (!createDTO.participants.includes(userId)) {
-				createDTO.participants.push(userId);
+			// Transform participants to new structure
+			const participantObjects = createDTO.participants.map(participantId => ({
+				userId: participantId,
+				lastReadMessageId: null,
+				lastReadAt: null,
+				joinedAt: new Date()
+			}));
+
+			// Add current user if not already included
+			const currentUserExists = participantObjects.some(p => p.userId.toString() === userId.toString());
+			if (!currentUserExists) {
+				participantObjects.push({
+					userId: userId,
+					lastReadMessageId: null,
+					lastReadAt: null,
+					joinedAt: new Date()
+				});
 			}
 
 			if (createDTO.isGroup && !createDTO.admin) {
@@ -169,7 +221,7 @@ export class ConversationController {
 
 			const conversation = new Conversation({
 				name: createDTO.name,
-				participants: createDTO.participants,
+				participants: participantObjects,
 				isGroup: createDTO.isGroup,
 				admin: createDTO.admin,
 				groupSettings: createDTO.groupSettings,
@@ -184,16 +236,16 @@ export class ConversationController {
 			// 		global.socketManager.joinConversation(participantId.toString(), conversation._id);
 			// 	});
 			// }
-			
+
 			if (global.socketService) {
 				await global.socketService.sendNewConversation(
-				  conversation,
-				  conversation.participants
+					conversation,
+					conversation.participants
 				);
 			}
 
 			// Populate participants
-			await conversation.populate("participants", "username avatarUrl email");
+			await conversation.populate("participants.userId", "username avatarUrl email");
 			await conversation.populate("admin", "username avatarUrl");
 
 			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants, userId);
@@ -213,22 +265,48 @@ export class ConversationController {
 				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
 			}
 
-			const createDTO = new CreateConversationDTO(req.body);
-			const userId = req.user._id;
+		const createDTO = new CreateConversationDTO(req.body);
+		const userId = req.user._id;
 
-			if (!createDTO.participants.includes(userId)) {
-				createDTO.participants.push(userId);
-			}
+		// Transform participants to new structure
+		const participantObjects = createDTO.participants.map(participantId => ({
+			userId: participantId,
+			lastReadMessageId: null,
+			lastReadAt: null,
+			joinedAt: new Date()
+		}));
 
-			let conversation;
+		// Add current user if not already included
+		const currentUserExists = participantObjects.some(p => p.userId.toString() === userId.toString());
+		if (!currentUserExists) {
+			participantObjects.push({
+				userId: userId,
+				lastReadMessageId: null,
+				lastReadAt: null,
+				joinedAt: new Date()
+			});
+		}
 
-			if (!createDTO.isGroup && createDTO.participants.length === 2) {
-				// Search for 1-1 conversation (unordered match)
+		let conversation;
+
+		if (!createDTO.isGroup && participantObjects.length === 2) {
+			// Search for 1-1 conversation (check both old and new structure)
+			const participantIds = participantObjects.map(p => p.userId);
+			
+			// Try new structure first
+			conversation = await Conversation.findOne({
+				isGroup: false,
+				"participants.userId": { $all: participantIds, $size: 2 },
+			});
+
+			// Try old structure for backward compatibility
+			if (!conversation) {
 				conversation = await Conversation.findOne({
 					isGroup: false,
-					participants: { $all: createDTO.participants, $size: 2 },
+					participants: { $all: participantIds, $size: 2 },
 				});
 			}
+		}
 
 			if (!conversation) {
 				// Create new conversation
@@ -238,7 +316,7 @@ export class ConversationController {
 
 				conversation = new Conversation({
 					name: createDTO.name,
-					participants: createDTO.participants,
+					participants: participantObjects,
 					isGroup: createDTO.isGroup,
 					admin: createDTO.admin,
 					groupSettings: createDTO.groupSettings,
@@ -246,10 +324,13 @@ export class ConversationController {
 				});
 
 				await conversation.save();
-			}
+		} else {
+			// Migrate old conversation structure if needed
+			conversation = ConversationController.migrateParticipantsStructure(conversation);
+		}
 
-			await conversation.populate("participants", "username avatarUrl email");
-			await conversation.populate("admin", "username avatarUrl");
+		await conversation.populate("participants.userId", "username avatarUrl email");
+		await conversation.populate("admin", "username avatarUrl");
 
 			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants, userId);
 
@@ -269,75 +350,90 @@ export class ConversationController {
 			const { limit = 20, lastUpdatedAt } = req.query;
 			const parsedLimit = parseInt(limit);
 
-			let matchStage = {
-				participants: userId,
-				isActive: true,
-			};
+		let matchStage = {
+			$or: [
+				{ "participants.userId": userId },
+				{ "participants": userId }
+			],
+			isActive: true,
+		};
 
 			// Cursor-based pagination: fetch conversations updated before lastUpdatedAt
 			if (lastUpdatedAt) {
 				matchStage.updatedAt = { ...matchStage.updatedAt, $lt: new Date(lastUpdatedAt) };
 			}
 
-			// Build aggregation pipeline
-			const pipeline = [
-				{ $match: matchStage },
-				{ $sort: { updatedAt: -1 } },
-				{ $limit: parsedLimit },
-				{
-					$lookup: {
-						from: "users",
-						localField: "participants",
-						foreignField: "_id",
-						as: "participants"
-					}
-				},
-				{
-					$lookup: {
-						from: "users",
-						localField: "admin",
-						foreignField: "_id",
-						as: "admin"
-					}
-				},
-				{
-					$unwind: {
-						path: "$admin",
-						preserveNullAndEmptyArrays: true
-					}
-				},
-				{
-					$project: {
-						_id: 1,
-						name: 1,
-						participants: {
-							_id: 1,
-							username: 1,
-							avatarUrl: 1,
-							email: 1
-						},
-						isGroup: 1,
-						admin: {
-							_id: 1,
-							username: 1,
-							avatarUrl: 1
-						},
-						lastMessage: {
-							messageId: 1,
-							text: 1,
-							timestamp: 1,
-							isRead: 1
-						},
-						groupSettings: 1,
-						settings: 1,
-						updatedAt: 1,
-						createdAt: 1,
-						isActive: 1
-					}
-				}
-			];
+		// Simplified approach: Get conversations and handle participant population manually
+		const conversations = await Conversation.find(matchStage)
+			.sort({ updatedAt: -1 })
+			.limit(parsedLimit)
+			.populate("admin", "username avatarUrl")
+			.lean();
 
-			const conversations = await Conversation.aggregate(pipeline);
+		// Optimize: Collect all participant IDs first to avoid N+1 queries
+		const allParticipantIds = new Set();
+		
+		conversations.forEach(conversation => {
+			if (conversation.participants && conversation.participants.length > 0) {
+				const firstParticipant = conversation.participants[0];
+				
+				// Check if it's new structure (has userId field)
+				if (firstParticipant && typeof firstParticipant === 'object' && firstParticipant.userId) {
+					// New structure - participants have userId field
+					conversation.participants.forEach(participant => {
+						if (participant.userId) {
+							allParticipantIds.add(participant.userId.toString());
+						}
+					});
+				} else {
+					// Old structure - participants are ObjectIds (string or ObjectId objects)
+					conversation.participants.forEach(participantId => {
+						// Convert ObjectId to string for consistent handling
+						const idString = participantId.toString ? participantId.toString() : participantId;
+						allParticipantIds.add(idString);
+					});
+				}
+			}
+		});
+
+		// Fetch all users at once
+		const allUsers = await User.find({ _id: { $in: Array.from(allParticipantIds) } })
+			.select("username avatarUrl email")
+			.lean();
+		
+		// Create a user lookup map for faster access
+		const userMap = new Map();
+		allUsers.forEach(user => {
+			userMap.set(user._id.toString(), user);
+		});
+
+		// Handle participant population for both old and new structures
+		conversations.forEach(conversation => {
+			if (conversation.participants && conversation.participants.length > 0) {
+				const firstParticipant = conversation.participants[0];
+				
+				// Check if it's new structure (has userId field)
+				if (firstParticipant && typeof firstParticipant === 'object' && firstParticipant.userId) {
+					// New structure - participants have userId field
+					conversation.participants = conversation.participants.map(participant => ({
+						...participant,
+						user: userMap.get(participant.userId.toString())
+					}));
+				} else {
+					// Old structure - participants are ObjectIds (string or ObjectId objects)
+					conversation.participants = conversation.participants.map(participantId => {
+						const idString = participantId.toString ? participantId.toString() : participantId;
+						return {
+							userId: participantId,
+							lastReadMessageId: null,
+							lastReadAt: null,
+							joinedAt: new Date(),
+							user: userMap.get(idString)
+						};
+					});
+				}
+			}
+		});
 
 			// Enrich conversations with proper lastMessage including read status
 			const enrichedConversations = await Promise.all(
@@ -374,22 +470,64 @@ export class ConversationController {
 			const { conversationId } = req.params;
 			const userId = req.user._id;
 
+			// Use the same query logic as getUserConversations for consistency
 			const conversation = await Conversation.findOne({
 				_id: conversationId,
-				participants: userId,
+				$or: [
+					{ "participants.userId": userId },
+					{ "participants": userId }
+				],
 				isActive: true,
 			})
-				.populate("participants", "username avatarUrl email")
-				.populate("admin", "username avatarUrl");
+				.populate("admin", "username avatarUrl")
+				.lean();
 
 			if (!conversation) {
 				return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
 			}
 
+			// Handle participant population manually like in getUserConversations
+			if (conversation.participants && conversation.participants.length > 0) {
+				const firstParticipant = conversation.participants[0];
+				
+				// Check if it's new structure (has userId field)
+				if (firstParticipant && typeof firstParticipant === 'object' && firstParticipant.userId) {
+					// New structure - participants have userId field
+					const participantIds = conversation.participants.map(p => p.userId);
+					const users = await User.find({ _id: { $in: participantIds } })
+						.select("username avatarUrl email")
+						.lean();
+					
+					// Add user data to existing structure
+					conversation.participants = conversation.participants.map(participant => ({
+						...participant,
+						user: users.find(user => user._id.toString() === participant.userId.toString())
+					}));
+				} else {
+					// Old structure - participants are ObjectIds
+					const participantIds = conversation.participants;
+					const users = await User.find({ _id: { $in: participantIds } })
+						.select("username avatarUrl email")
+						.lean();
+					
+					// Transform to new structure
+					conversation.participants = participantIds.map(participantId => {
+						const idString = participantId.toString ? participantId.toString() : participantId;
+						return {
+							userId: participantId,
+							lastReadMessageId: null,
+							lastReadAt: null,
+							joinedAt: new Date(),
+							user: users.find(user => user._id.toString() === idString)
+						};
+					});
+				}
+			}
+
 			// Enrich conversation with proper lastMessage including read status
 			const lastMessage = await ConversationController.getLastMessageWithReadStatus(conversation._id, userId);
 			const enrichedConversation = {
-				...conversation.toObject(),
+				...conversation,
 				lastMessage: lastMessage
 			};
 
@@ -416,7 +554,10 @@ export class ConversationController {
 
 			const conversation = await Conversation.findOne({
 				_id: conversationId,
-				participants: userId,
+				$or: [
+					{ "participants.userId": userId },
+					{ "participants": userId }
+				],
 				isActive: true,
 			});
 
@@ -456,7 +597,10 @@ export class ConversationController {
 
 			const conversation = await Conversation.findOne({
 				_id: conversationId,
-				participants: userId,
+				$or: [
+					{ "participants.userId": userId },
+					{ "participants": userId }
+				],
 				isActive: true,
 			});
 
@@ -511,7 +655,10 @@ export class ConversationController {
 
 			const conversation = await Conversation.findOne({
 				_id: conversationId,
-				participants: userId,
+				$or: [
+					{ "participants.userId": userId },
+					{ "participants": userId }
+				],
 				isActive: true,
 			});
 
@@ -564,10 +711,13 @@ export class ConversationController {
 			const { page = 1, limit = 20 } = req.query;
 			const skip = (page - 1) * limit;
 
-			let searchQuery = {
-				participants: userId,
-				isActive: true,
-			};
+		let searchQuery = {
+			$or: [
+				{ "participants.userId": userId },
+				{ "participants": userId }
+			],
+			isActive: true,
+		};
 
 			if (searchDTO.query) {
 				searchQuery.name = { $regex: searchDTO.query, $options: "i" };
@@ -610,7 +760,10 @@ export class ConversationController {
 
 			const conversation = await Conversation.findOne({
 				_id: conversationId,
-				participants: userId,
+				$or: [
+					{ "participants.userId": userId },
+					{ "participants": userId }
+				],
 				isActive: true,
 			});
 
@@ -647,7 +800,10 @@ export class ConversationController {
 
 			const conversation = await Conversation.findOne({
 				_id: conversationId,
-				participants: userId,
+				$or: [
+					{ "participants.userId": userId },
+					{ "participants": userId }
+				],
 				isActive: true,
 			});
 
@@ -680,7 +836,10 @@ export class ConversationController {
 
 			const conversation = await Conversation.findOne({
 				_id: conversationId,
-				participants: userId,
+				$or: [
+					{ "participants.userId": userId },
+					{ "participants": userId }
+				],
 				isActive: true,
 			});
 
