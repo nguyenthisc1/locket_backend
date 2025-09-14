@@ -81,7 +81,10 @@ export class MessageController {
       // Check if user has access to this message's conversation
       const conversation = await Conversation.findOne({
         _id: message.conversationId,
-        participants: userId,
+        $or: [
+          { "participants.userId": userId },
+          { "participants": userId }
+        ],
         isActive: true
       });
 
@@ -128,7 +131,10 @@ export class MessageController {
       // Verify conversation exists and user is participant
       const conversation = await Conversation.findOne({
         _id: createDTO.conversationId,
-        participants: userId,
+        $or: [
+          { "participants.userId": userId },
+          { "participants": userId }
+        ],
         isActive: true
       });
 
@@ -300,10 +306,13 @@ export class MessageController {
       const { limit = 50, lastCreatedAt } = req.query;
       const parsedLimit = parseInt(limit);
 
-      // Verify conversation access
+      // Verify conversation access (support both old and new participant structures)
       const conversation = await Conversation.findOne({
         _id: conversationId,
-        participants: userId,
+        $or: [
+          { "participants.userId": userId },
+          { "participants": userId }
+        ],
         isActive: true
       });
 
@@ -358,7 +367,10 @@ export class MessageController {
       // Check if user has access to this message
       const conversation = await Conversation.findOne({
         _id: message.conversationId,
-        participants: userId,
+        $or: [
+          { "participants.userId": userId },
+          { "participants": userId }
+        ],
         isActive: true
       });
 
@@ -481,7 +493,10 @@ export class MessageController {
       // Check if user has access to this message
       const conversation = await Conversation.findOne({
         _id: message.conversationId,
-        participants: userId,
+        $or: [
+          { "participants.userId": userId },
+          { "participants": userId }
+        ],
         isActive: true
       });
 
@@ -528,7 +543,10 @@ export class MessageController {
       // Check if user has access to this message
       const conversation = await Conversation.findOne({
         _id: message.conversationId,
-        participants: userId,
+        $or: [
+          { "participants.userId": userId },
+          { "participants": userId }
+        ],
         isActive: true
       });
 
@@ -563,7 +581,10 @@ export class MessageController {
       // Verify target conversation exists and user is participant
       const targetConversation = await Conversation.findOne({
         _id: forwardDTO.targetConversationId,
-        participants: userId,
+        $or: [
+          { "participants.userId": userId },
+          { "participants": userId }
+        ],
         isActive: true
       });
 
@@ -587,7 +608,10 @@ export class MessageController {
           // Check if user has access to original message
           const originalConversation = await Conversation.findOne({
             _id: originalMessage.conversationId,
-            participants: userId,
+            $or: [
+          { "participants.userId": userId },
+          { "participants": userId }
+        ],
             isActive: true
           });
 
@@ -665,7 +689,10 @@ export class MessageController {
       // Check if user has access to the parent message
       const conversation = await Conversation.findOne({
         _id: parentMessage.conversationId,
-        participants: userId,
+        $or: [
+          { "participants.userId": userId },
+          { "participants": userId }
+        ],
         isActive: true
       });
 
@@ -748,7 +775,10 @@ export class MessageController {
       // Check if user has access to the parent message
       const conversation = await Conversation.findOne({
         _id: parentMessage.conversationId,
-        participants: userId,
+        $or: [
+          { "participants.userId": userId },
+          { "participants": userId }
+        ],
         isActive: true
       });
 
@@ -803,7 +833,10 @@ export class MessageController {
 
       // Get user's conversations
       const userConversations = await Conversation.find({
-        participants: userId,
+        $or: [
+          { "participants.userId": userId },
+          { "participants": userId }
+        ],
         isActive: true
       }).select('_id');
 
@@ -889,7 +922,10 @@ export class MessageController {
       // Check if user has access to this message
       const conversation = await Conversation.findOne({
         _id: message.conversationId,
-        participants: userId,
+        $or: [
+          { "participants.userId": userId },
+          { "participants": userId }
+        ],
         isActive: true
       });
 
