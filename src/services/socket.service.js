@@ -17,20 +17,20 @@ class SocketService {
 
             const room = `conversation:${conversationId}`;
 
-            // if (excludeUserId) {
-            //     const sockets = await this.socketManager.io.in(room).fetchSockets();
-            //     sockets.forEach(socket => {
-            //         const userId = this.socketManager.socketUsers.get(socket.id);
-            //         if (userId && userId.toString() !== excludeUserId.toString()) {
-            //             socket.emit("new_message", message);
-            //         }
-            //     });
-            //     console.log('test new message' + message);
-            // } else {
+            if (excludeUserId) {
+                const sockets = await this.socketManager.io.in(room).fetchSockets();
+                sockets.forEach(socket => {
+                    const userId = this.socketManager.socketUsers.get(socket.id);
+                    if (userId && userId.toString() !== excludeUserId.toString()) {
+                        socket.emit("new_message", message);
+                    }
+                });
+                console.log('test new message' + message);
+            } else {
 
-            // }
             console.log(`🔥 Emit new_message to room=${room}`, message);
             this.socketManager.io.to(room).emit("new_message", message);
+            }
 
             console.log(`Message sent to conversation ${conversationId}`);
         } catch (error) {

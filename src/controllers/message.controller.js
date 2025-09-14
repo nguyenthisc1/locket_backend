@@ -227,15 +227,41 @@ export class MessageController {
       // Update conversation's last message
       await conversation.updateLastMessage(message);
 
+      // Build lastMessage payload for sidebar/conversation list
+      const lastMessagePayload = {
+        conversationId: conversation._id,
+        lastMessage: {
+          messageId: message._id,
+          text: message.text || (message.attachments?.length ? 'Media' : ''),
+          sender: {
+            _id: message.senderId._id,
+            username: message.senderId.username,
+            avatarUrl: message.senderId.avatarUrl
+          },
+          timestamp: message.createdAt,
+          isRead: false 
+        },
+        updatedAt: new Date()
+      };
+
       // Update message status to 'delivered' after successful save
       await message.updateStatus('delivered');
 
+      // Emit socket events
       if (global.socketService) {
+        // Emit for chat detail screen
         await global.socketService.sendNewMessage(
           message.conversationId,
           response.toJSON(),
           userId
         );
+
+        // Emit for conversation list (sidebar)
+        await global.socketService.sendConversationUpdate(
+          message.conversationId,
+          lastMessagePayload,
+          userId
+        )
       }
 
       // Update thread info if this is a thread message
