@@ -16,11 +16,11 @@ import { createErrorResponse, createSuccessResponse, createValidationErrorRespon
 
 export class MessageController {
   // Helper method to mark message as read by user
-  static async markMessageAsReadByUser(messageId, userId) {
+  static async markConversationAsReadByUser(conversationId, userId) {
     try {
-      await Message.updateOne(
+      await Message.updateMany(
         {
-          _id: messageId,
+          conversationId,
           readBy: { $nin: [userId] }
         },
         {
@@ -33,25 +33,19 @@ export class MessageController {
     }
   }
 
-  static async markMessageAsRead(req, res) {
+  static async markConversationAsRead(req, res) {
     try {
-      const { messageId } = req.params;
+      const { conversationId } = req.params;
       const userId = req.user._id;
 
       // Update message read status
-      await MessageController.markMessageAsReadByUser(messageId, userId);
+      await MessageController.markConversationAsReadByUser(conversationId, userId);
 
-      // Get message to find conversation
-      const message = await Message.findById(messageId);
-      if (message) {
-        // Send socket event
-        if (global.socketService) {
-          await global.socketService.sendMessageReadReceipt(
-            messageId,
-            message.conversationId,
-            userId
-          );
-        }
+      if (global.socketService) {
+        await global.socketService.markConversationReadReceipt(
+          conversationId,
+          userId
+        );
       }
 
       res.json(createSuccessResponse("message.messageMarkedAsRead", null, detectLanguage(req)));
@@ -97,7 +91,7 @@ export class MessageController {
 
       // If status is 'read', also add user to readBy array
       if (status === 'read') {
-        await MessageController.markMessageAsReadByUser(messageId, userId);
+        await MessageController.markConversationAsReadByUser(messageId, userId);
       }
 
       // Send socket event for status update
@@ -239,7 +233,7 @@ export class MessageController {
             avatarUrl: message.senderId.avatarUrl
           },
           timestamp: message.createdAt,
-          isRead: false 
+          isRead: false
         },
         updatedAt: new Date()
       };
@@ -635,9 +629,9 @@ export class MessageController {
           const originalConversation = await Conversation.findOne({
             _id: originalMessage.conversationId,
             $or: [
-          { "participants.userId": userId },
-          { "participants": userId }
-        ],
+              { "participants.userId": userId },
+              { "participants": userId }
+            ],
             isActive: true
           });
 

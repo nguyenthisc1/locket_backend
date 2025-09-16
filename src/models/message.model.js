@@ -202,7 +202,8 @@ const messageSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
-messageSchema.index({ conversationId: 1, createdAt: -1 });
+messageSchema.index({ conversationId: 1, createdAt: -1});
+messageSchema.index({ conversationId: 1, readBy: 1 });
 messageSchema.index({ senderId: 1 });
 messageSchema.index({ replyTo: 1 });
 messageSchema.index({ 'threadInfo.parentMessageId': 1 });

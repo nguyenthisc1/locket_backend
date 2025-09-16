@@ -39,18 +39,17 @@ class SocketService {
     }
 
     // Send message read receipt
-    async sendMessageReadReceipt(messageId, conversationId, userId) {
+    async markConversationReadReceipt(conversationId, userId) {
         try {
             if (!this.socketManager) return;
 
             this.socketManager.io.to(`conversation:${conversationId}`).emit('message:read', {
-                messageId,
-                userId,
                 conversationId,
+                userId,
                 timestamp: new Date()
             });
 
-            console.log(`Read receipt sent for message ${messageId}`);
+            console.log(`Read receipt sent for conversation ${conversationId} by user ${userId}`);
         } catch (error) {
             console.error('Send message read receipt error:', error);
         }

@@ -26,6 +26,11 @@ router.post(
 // Get conversation messages
 router.get('/conversation/:conversationId', MessageController.getConversationMessages);
 
+// Read message conversation
+router.post('/:conversationId/read',
+  MessageController.markConversationAsRead
+)
+
 // Search messages
 router.get(
   '/search',
