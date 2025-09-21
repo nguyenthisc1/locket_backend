@@ -11,7 +11,7 @@ class SocketService {
     // ===========================================
 
     // Send new message to conversation participants
-    async sendNewMessage(conversationId, message, excludeUserId = null) {
+    async sendNewMessage(conversationId, data, excludeUserId = null) {
         try {
             if (!this.socketManager) return;
 
@@ -22,14 +22,18 @@ class SocketService {
                 sockets.forEach(socket => {
                     const userId = this.socketManager.socketUsers.get(socket.id);
                     if (userId && userId.toString() !== excludeUserId.toString()) {
-                        socket.emit("new_message", message);
+                        socket.emit("message:send", {
+                            conversationId,
+                            data,
+                            timestamp: new Date()
+                        });
                     }
                 });
-                console.log('test new message' + message);
+                console.log('test new message' + data);
             } else {
 
-            console.log(`🔥 Emit new_message to room=${room}`, message);
-            this.socketManager.io.to(room).emit("new_message", message);
+                console.log(`🔥 Emit message:send to room=${room}`, data);
+                this.socketManager.io.to(room).emit("message:send", data);
             }
 
             console.log(`Message sent to conversation ${conversationId}`);
@@ -39,12 +43,13 @@ class SocketService {
     }
 
     // Send message read receipt
-    async markConversationReadReceipt(conversationId, userId) {
+    async markConversationReadReceipt(conversationId, lastReadMessage, userId) {
         try {
             if (!this.socketManager) return;
 
             this.socketManager.io.to(`conversation:${conversationId}`).emit('message:read', {
                 conversationId,
+                lastReadMessage,
                 userId,
                 timestamp: new Date()
             });
@@ -56,13 +61,14 @@ class SocketService {
     }
 
     // Send message update (edit)
-    async sendMessageUpdate(conversationId, message) {
+    async sendMessageUpdate(conversationId, data) {
+        console.log('socket 123' + data)
         try {
             if (!this.socketManager) return;
 
             this.socketManager.io.to(`conversation:${conversationId}`).emit('message:updated', {
                 conversationId,
-                message,
+                data,
                 timestamp: new Date()
             });
 

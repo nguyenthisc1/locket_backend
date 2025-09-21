@@ -239,6 +239,7 @@ class SocketManager {
   handleMessageRead(socket, data) {
     const { messageId, conversationId } = data;
     this.io.to(`conversation:${conversationId}`).emit('message:read', {
+      conversationId,
       messageId,
       userId: socket.userId,
       timestamp: new Date()

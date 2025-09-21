@@ -15,42 +15,65 @@ import Message from '../models/message.model.js';
 import { createErrorResponse, createSuccessResponse, createValidationErrorResponse, detectLanguage } from '../utils/translations.js';
 
 export class MessageController {
-  // Helper method to mark message as read by user
-  static async markConversationAsReadByUser(conversationId, userId) {
-    try {
-      await Message.updateMany(
-        {
-          conversationId,
-          readBy: { $nin: [userId] }
-        },
-        {
-          $addToSet: { readBy: userId },
-          $set: { status: 'read' }
-        }
-      );
-    } catch (error) {
-      console.error('Error marking message as read:', error);
-    }
-  }
 
   static async markConversationAsRead(req, res) {
     try {
       const { conversationId } = req.params;
       const userId = req.user._id;
 
-      // Update message read status
-      await MessageController.markConversationAsReadByUser(conversationId, userId);
+      // Find the conversation and verify access
+      const conversation = await Conversation.findOne({
+        _id: conversationId,
+        $or: [
+          { "participants.userId": userId },
+          { "participants": userId }
+        ],
+        isActive: true
+      });
+
+      if (!conversation) {
+        return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
+      }
+
+      // Get the latest message in the conversation
+      // Retrieve the latest non-deleted message in the conversation
+      // Fetch the last message and populate senderId to get username and avatarUrl
+      const lastMessage = await Message.findOne({
+        conversationId: conversationId,
+        isDeleted: false
+      })
+        .sort({ createdAt: -1 })
+        .populate('senderId', 'username avatarUrl');
+
+      if (lastMessage) {
+        await conversation.updateParticipantLastRead(userId, lastMessage._id);
+      }
 
       if (global.socketService) {
+        // Send a minimal message object for the read receipt, with sender as an object
         await global.socketService.markConversationReadReceipt(
-          conversationId,
+          conversation.id,
+          lastMessage
+            ? {
+              messageId: lastMessage._id,
+              text: lastMessage.text || (lastMessage.attachments && lastMessage.attachments.length > 0 ? "Media" : ""),
+              sender: lastMessage.senderId
+                ? {
+                  _id: lastMessage.senderId._id,
+                  username: lastMessage.senderId.username,
+                  avatarUrl: lastMessage.senderId.avatarUrl
+                }
+                : null,
+              timestamp: lastMessage.createdAt,
+            }
+            : null,
           userId
         );
       }
 
       res.json(createSuccessResponse("message.messageMarkedAsRead", null, detectLanguage(req)));
     } catch (error) {
-      console.error('Mark message as read error:', error);
+      console.error('Mark conversation as read error:', error);
       res.status(500).json(createErrorResponse("message.markAsReadFailed", error.message, null, detectLanguage(req)));
     }
   }
@@ -89,9 +112,20 @@ export class MessageController {
       // Update status
       await message.updateStatus(status);
 
-      // If status is 'read', also add user to readBy array
+      // If status is 'read', update participant's lastReadMessageId in conversation
       if (status === 'read') {
-        await MessageController.markConversationAsReadByUser(messageId, userId);
+        const conversation = await Conversation.findOne({
+          _id: message.conversationId,
+          $or: [
+            { "participants.userId": userId },
+            { "participants": userId }
+          ],
+          isActive: true
+        });
+
+        if (conversation) {
+          await conversation.updateParticipantLastRead(userId, messageId);
+        }
       }
 
       // Send socket event for status update
@@ -197,7 +231,7 @@ export class MessageController {
         forwardedFrom: createDTO.forwardedFrom,
         forwardInfo,
         threadInfo,
-        status: 'sent', // Default status when message is created
+        status: 'sent',
         metadata: {
           ...createDTO.metadata,
           clientMessageId: createDTO.metadata?.clientMessageId,
@@ -206,7 +240,6 @@ export class MessageController {
         },
         sticker: createDTO.sticker,
         emote: createDTO.emote
-        // readBy starts empty - message is unread by default
       });
 
       await message.save();
@@ -216,12 +249,16 @@ export class MessageController {
       await message.populate('replyTo');
       await message.populate('forwardedFrom', 'username avatarUrl');
 
+      // Prepare response DTO for the new message
       const response = MessageResponseDTO.fromMessage(message, message.senderId);
 
-      // Update conversation's last message
+      // Update the conversation's last message reference
       await conversation.updateLastMessage(message);
 
-      // Build lastMessage payload for sidebar/conversation list
+      // Mark the message as read for the sender (since they sent it)
+      await conversation.updateParticipantLastRead(userId, message._id);
+
+      // Prepare the last message payload for sidebar/conversation list updates
       const lastMessagePayload = {
         conversationId: conversation._id,
         lastMessage: {
@@ -233,30 +270,43 @@ export class MessageController {
             avatarUrl: message.senderId.avatarUrl
           },
           timestamp: message.createdAt,
-          isRead: false
         },
         updatedAt: new Date()
       };
 
-      // Update message status to 'delivered' after successful save
-      await message.updateStatus('delivered');
-
-      // Emit socket events
+      // Emit socket events if socketService is available
       if (global.socketService) {
-        // Emit for chat detail screen
+        // Notify chat detail screen participants of the new message
         await global.socketService.sendNewMessage(
           message.conversationId,
           response.toJSON(),
           userId
         );
 
-        // Emit for conversation list (sidebar)
+        // Notify conversation list (sidebar) of the last message update
         await global.socketService.sendConversationUpdate(
           message.conversationId,
           lastMessagePayload,
           userId
-        )
+        );
       }
+
+      // Update the message status to 'delivered'
+      
+      await message.updateStatus('delivered');
+      
+      // Emit a message status update event
+      if (global.socketService) {
+              // Introduce a short delay before updating the message status to 'delivered'
+      await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+        await global.socketService.sendMessageUpdate(
+          message.conversationId,
+          MessageResponseDTO.fromMessage(message, message.senderId).toJSON()
+        );
+      }
+
+      // Debug log for message response DTO
+      console.log('[MessageController] Message sent:', MessageResponseDTO.fromMessage(message, message.senderId).toJSON());
 
       // Update thread info if this is a thread message
       if (threadInfo) {
@@ -761,6 +811,9 @@ export class MessageController {
 
       // Update conversation's last message
       await conversation.updateLastMessage(replyMessage);
+
+      // Auto-mark the reply message as read for the sender
+      await conversation.updateParticipantLastRead(userId, replyMessage._id);
 
       await replyMessage.populate('senderId', 'username avatarUrl');
       await replyMessage.populate('replyTo');

@@ -62,7 +62,7 @@ app.get("/api/health", (req, res) => {
 	res.status(200).json({
 		status: "OK",
 		message: "Locket Backend API is healthy",
-		timestamp: new Date().toISOString(),
+		timestamp: Date.now().toISOString(),
 		version: "1.0.0",
 	});
 });

@@ -37,7 +37,8 @@ export class ConversationController {
 	static async isLastMessageRead(conversationId, userId) {
 		try {
 			const lastMessage = await Message.findOne({
-				conversationId: conversationId
+				conversationId: conversationId,
+				isDeleted: false
 			})
 				.sort({ createdAt: -1 })
 				.lean();
@@ -51,8 +52,38 @@ export class ConversationController {
 				return true;
 			}
 
-			// If someone else sent the message, check if current user has read it
-			return lastMessage.readBy && lastMessage.readBy.includes(userId);
+			// Get the conversation to check participant's lastReadMessageId
+			const conversation = await Conversation.findById(conversationId).lean();
+			if (!conversation) {
+				return true; // Default to read if conversation not found
+			}
+
+			// Find the participant's lastReadMessageId
+			let participant = null;
+			if (conversation.participants && conversation.participants.length > 0) {
+				const firstParticipant = conversation.participants[0];
+				
+				// Check if it's new structure (has userId field)
+				if (firstParticipant && typeof firstParticipant === 'object' && firstParticipant.userId) {
+					participant = conversation.participants.find(p => p.userId.toString() === userId.toString());
+				} else {
+					// Old structure - participant is ObjectId, need to transform
+					return true; // For old structure without lastReadMessageId, consider read
+				}
+			}
+
+			if (!participant || !participant.lastReadMessageId) {
+				return false; // No read record = unread
+			}
+
+			// Check if the lastReadMessageId is >= the last message (by createdAt)
+			const lastReadMessage = await Message.findById(participant.lastReadMessageId).lean();
+			if (!lastReadMessage) {
+				return false; // Invalid lastReadMessageId = unread
+			}
+
+			// If the last read message is newer than or equal to the last message, it's read
+			return lastReadMessage.createdAt >= lastMessage.createdAt;
 		} catch (error) {
 			console.error("Error checking last message read status:", error);
 			return true; // Default to read on error
@@ -63,7 +94,8 @@ export class ConversationController {
 	static async getLastMessageWithReadStatus(conversationId, userId) {
 		try {
 			const lastMessage = await Message.findOne({
-				conversationId: conversationId
+				conversationId: conversationId,
+				isDeleted: false
 			})
 				.sort({ createdAt: -1 })
 				.populate("senderId", "username avatarUrl")
@@ -73,19 +105,11 @@ export class ConversationController {
 				return null;
 			}
 
-			// Calculate isRead status for the current user
-			// If current user sent the message, consider it "read"
-			// If someone else sent it, check if current user has read it
-			const isRead = lastMessage.senderId.toString() === userId.toString() ||
-				(lastMessage.readBy && lastMessage.readBy.includes(userId));
-
 			return {
 				messageId: lastMessage._id,
 				text: lastMessage.text || (lastMessage.attachments && lastMessage.attachments.length > 0 ? "Media" : ""),
-				// senderId removed as requested
 				sender: lastMessage.senderId,
 				timestamp: lastMessage.createdAt,
-				isRead: isRead
 			};
 		} catch (error) {
 			console.error("Error fetching last message:", error);

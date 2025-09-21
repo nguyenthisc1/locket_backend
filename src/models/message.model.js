@@ -154,10 +154,6 @@ const messageSchema = new mongoose.Schema({
 		enum: ["sent", "delivered", "read"], 
 		default: "sent"
 	},
-	readBy: [{
-		type: mongoose.Schema.Types.ObjectId,
-		ref: 'User'
-	}],
 	isEdited: { 
 		type: Boolean, 
 		default: false 
@@ -203,7 +199,6 @@ const messageSchema = new mongoose.Schema({
 
 // Indexes for better performance
 messageSchema.index({ conversationId: 1, createdAt: -1});
-messageSchema.index({ conversationId: 1, readBy: 1 });
 messageSchema.index({ senderId: 1 });
 messageSchema.index({ replyTo: 1 });
 messageSchema.index({ 'threadInfo.parentMessageId': 1 });
@@ -278,17 +273,6 @@ messageSchema.methods.togglePin = function() {
 	return this.save();
 };
 
-// Method to mark message as read by user
-messageSchema.methods.markAsReadBy = function(userId) {
-	if (!this.readBy.includes(userId)) {
-		this.readBy.push(userId);
-		// Update status to 'read' if not already
-		if (this.status !== 'read') {
-			this.status = 'read';
-		}
-	}
-	return this.save();
-};
 
 // Method to update message status
 messageSchema.methods.updateStatus = function(newStatus) {

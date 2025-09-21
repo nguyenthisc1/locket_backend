@@ -115,7 +115,7 @@ export class NotificationController {
 				// Mark all notifications as read
 				await Notification.updateMany(
 					{ userId, isRead: false, isDeleted: false },
-					{ $set: { isRead: true, readAt: new Date() } }
+					{ $set: { isRead: true, readAt: Date.now() } }
 				);
 			} else if (markAsReadDTO.notificationIds.length > 0) {
 				// Mark specific notifications as read
