@@ -47,6 +47,28 @@ export class MessageController {
 
       if (lastMessage) {
         await conversation.updateParticipantLastRead(userId, lastMessage._id);
+
+        // Update message status to read
+        // await Message.updateMany(
+        //   {
+        //     conversationId,
+        //     senderId: { $ne: userId },
+        //     _id: { $lte: lastMessage._id },
+        //     status: { $ne: "read" }
+        //   },
+        //   { $set: { status: "read" } }
+        // );
+
+        await Message.updateMany(
+          {
+            conversationId,
+            senderId: { $ne: userId },
+            createdAt: { $lte: lastMessage.createdAt }, // all messages <= lastMessage
+            status: { $ne: "read" }
+          },
+          { $set: { status: "read" } }
+        );
+      
       }
 
       if (global.socketService) {
