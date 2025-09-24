@@ -292,9 +292,8 @@ messageSchema.statics.getThreadMessages = function(parentMessageId, limit = 50, 
 	.sort({ createdAt: 1 })
 	.limit(limit)
 	.skip(skip)
-	.populate('senderId', 'username avatarUrl')
 	.populate('replyTo')
-	.populate('forwardedFrom', 'username avatarUrl');
+	.populate('forwardedFrom');
 };
 
 // Static method to get conversation messages (offset-based pagination)
@@ -306,11 +305,10 @@ messageSchema.statics.getConversationMessages = function(conversationId, limit =
 	.sort({ createdAt: -1 })
 	.limit(limit)
 	.skip(skip)
-	.populate('senderId', 'username avatarUrl')
 	.populate('replyTo')
 	.populate('replyInfo.messageId')
-	.populate('forwardedFrom', 'username avatarUrl')
-	.populate('forwardInfo.originalSenderId', 'username avatarUrl');
+	.populate('forwardedFrom')
+	.populate('forwardInfo.originalSenderId');
 };
 
 // Static method to get conversation messages with cursor-based pagination
@@ -327,11 +325,10 @@ messageSchema.statics.getConversationMessagesCursor = function(conversationId, l
 	return this.find(query)
 	.sort({ createdAt: -1 })
 	.limit(limit)
-	.populate('senderId', 'username avatarUrl')
 	.populate('replyTo')
 	.populate('replyInfo.messageId')
-	.populate('forwardedFrom', 'username avatarUrl')
-	.populate('forwardInfo.originalSenderId', 'username avatarUrl');
+	.populate('forwardedFrom')
+	.populate('forwardInfo.originalSenderId');
 };
 
 export default mongoose.model('Message', messageSchema);

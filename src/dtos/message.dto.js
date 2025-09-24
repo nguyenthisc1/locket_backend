@@ -432,21 +432,19 @@ export class ReplyMessageDTO {
 
 // Message Response DTO
 export class MessageResponseDTO {
-  constructor(message, sender = null, replyMessage = null, forwardedFrom = null, currentUserId = null) {
+  constructor(message, replyMessage = null, forwardedFrom = null) {
     this.message = MessageDTO.fromModel(message);
-    this.sender = sender;
     this.replyMessage = replyMessage;
     this.forwardedFrom = forwardedFrom;
   }
 
-  static fromMessage(message, sender = null, replyMessage = null, forwardedFrom = null, currentUserId = null) {
-    return new MessageResponseDTO(message, sender, replyMessage, forwardedFrom, currentUserId);
+  static fromMessage(message, replyMessage = null, forwardedFrom = null) {
+    return new MessageResponseDTO(message, replyMessage, forwardedFrom);
   }
 
   toJSON() {
     return {
       message: this.message.toJSON(),
-      sender: this.sender,
       replyMessage: this.replyMessage,
       forwardedFrom: this.forwardedFrom
     };

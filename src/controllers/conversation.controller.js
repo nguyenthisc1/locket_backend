@@ -62,7 +62,7 @@ export class ConversationController {
 			let participant = null;
 			if (conversation.participants && conversation.participants.length > 0) {
 				const firstParticipant = conversation.participants[0];
-				
+
 				// Check if it's new structure (has userId field)
 				if (firstParticipant && typeof firstParticipant === 'object' && firstParticipant.userId) {
 					participant = conversation.participants.find(p => p.userId.toString() === userId.toString());
@@ -98,7 +98,6 @@ export class ConversationController {
 				isDeleted: false
 			})
 				.sort({ createdAt: -1 })
-				.populate("senderId", "username avatarUrl")
 				.lean();
 
 			if (!lastMessage) {
@@ -108,7 +107,7 @@ export class ConversationController {
 			return {
 				messageId: lastMessage._id,
 				text: lastMessage.text || (lastMessage.attachments && lastMessage.attachments.length > 0 ? "Media" : ""),
-				sender: lastMessage.senderId,
+				senderId: lastMessage.senderId,
 				timestamp: lastMessage.createdAt,
 			};
 		} catch (error) {
@@ -122,14 +121,14 @@ export class ConversationController {
 		try {
 			const userId = req.user._id;
 
-		// Get all user's conversations (support both old and new structure)
-		const conversations = await Conversation.find({
-			$or: [
-				{ "participants.userId": userId },
-				{ "participants": userId }
-			],
-			isActive: true
-		}).select('_id').lean();
+			// Get all user's conversations (support both old and new structure)
+			const conversations = await Conversation.find({
+				$or: [
+					{ "participants.userId": userId },
+					{ "participants": userId }
+				],
+				isActive: true
+			}).select('_id').lean();
 
 			let unreadCount = 0;
 
@@ -154,15 +153,15 @@ export class ConversationController {
 			const { conversationId } = req.params;
 			const userId = req.user._id;
 
-		// Verify conversation exists and user is participant (support both structures)
-		const conversation = await Conversation.findOne({
-			_id: conversationId,
-			$or: [
-				{ "participants.userId": userId },
-				{ "participants": userId }
-			],
-			isActive: true,
-		});
+			// Verify conversation exists and user is participant (support both structures)
+			const conversation = await Conversation.findOne({
+				_id: conversationId,
+				$or: [
+					{ "participants.userId": userId },
+					{ "participants": userId }
+				],
+				isActive: true,
+			});
 
 			if (!conversation) {
 				return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
@@ -289,48 +288,48 @@ export class ConversationController {
 				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
 			}
 
-		const createDTO = new CreateConversationDTO(req.body);
-		const userId = req.user._id;
+			const createDTO = new CreateConversationDTO(req.body);
+			const userId = req.user._id;
 
-		// Transform participants to new structure
-		const participantObjects = createDTO.participants.map(participantId => ({
-			userId: participantId,
-			lastReadMessageId: null,
-			lastReadAt: null,
-			joinedAt: new Date()
-		}));
-
-		// Add current user if not already included
-		const currentUserExists = participantObjects.some(p => p.userId.toString() === userId.toString());
-		if (!currentUserExists) {
-			participantObjects.push({
-				userId: userId,
+			// Transform participants to new structure
+			const participantObjects = createDTO.participants.map(participantId => ({
+				userId: participantId,
 				lastReadMessageId: null,
 				lastReadAt: null,
 				joinedAt: new Date()
-			});
-		}
+			}));
 
-		let conversation;
-
-		if (!createDTO.isGroup && participantObjects.length === 2) {
-			// Search for 1-1 conversation (check both old and new structure)
-			const participantIds = participantObjects.map(p => p.userId);
-			
-			// Try new structure first
-			conversation = await Conversation.findOne({
-				isGroup: false,
-				"participants.userId": { $all: participantIds, $size: 2 },
-			});
-
-			// Try old structure for backward compatibility
-			if (!conversation) {
-				conversation = await Conversation.findOne({
-					isGroup: false,
-					participants: { $all: participantIds, $size: 2 },
+			// Add current user if not already included
+			const currentUserExists = participantObjects.some(p => p.userId.toString() === userId.toString());
+			if (!currentUserExists) {
+				participantObjects.push({
+					userId: userId,
+					lastReadMessageId: null,
+					lastReadAt: null,
+					joinedAt: new Date()
 				});
 			}
-		}
+
+			let conversation;
+
+			if (!createDTO.isGroup && participantObjects.length === 2) {
+				// Search for 1-1 conversation (check both old and new structure)
+				const participantIds = participantObjects.map(p => p.userId);
+
+				// Try new structure first
+				conversation = await Conversation.findOne({
+					isGroup: false,
+					"participants.userId": { $all: participantIds, $size: 2 },
+				});
+
+				// Try old structure for backward compatibility
+				if (!conversation) {
+					conversation = await Conversation.findOne({
+						isGroup: false,
+						participants: { $all: participantIds, $size: 2 },
+					});
+				}
+			}
 
 			if (!conversation) {
 				// Create new conversation
@@ -348,13 +347,13 @@ export class ConversationController {
 				});
 
 				await conversation.save();
-		} else {
-			// Migrate old conversation structure if needed
-			conversation = ConversationController.migrateParticipantsStructure(conversation);
-		}
+			} else {
+				// Migrate old conversation structure if needed
+				conversation = ConversationController.migrateParticipantsStructure(conversation);
+			}
 
-		await conversation.populate("participants.userId", "username avatarUrl email");
-		await conversation.populate("admin", "username avatarUrl");
+			await conversation.populate("participants.userId", "username avatarUrl email");
+			await conversation.populate("admin", "username avatarUrl");
 
 			const response = ConversationResponseDTO.fromConversation(conversation, conversation.participants, userId);
 
@@ -374,90 +373,90 @@ export class ConversationController {
 			const { limit = 20, lastUpdatedAt } = req.query;
 			const parsedLimit = parseInt(limit);
 
-		let matchStage = {
-			$or: [
-				{ "participants.userId": userId },
-				{ "participants": userId }
-			],
-			isActive: true,
-		};
+			let matchStage = {
+				$or: [
+					{ "participants.userId": userId },
+					{ "participants": userId }
+				],
+				isActive: true,
+			};
 
 			// Cursor-based pagination: fetch conversations updated before lastUpdatedAt
 			if (lastUpdatedAt) {
 				matchStage.updatedAt = { ...matchStage.updatedAt, $lt: new Date(lastUpdatedAt) };
 			}
 
-		// Simplified approach: Get conversations and handle participant population manually
-		const conversations = await Conversation.find(matchStage)
-			.sort({ updatedAt: -1 })
-			.limit(parsedLimit)
-			.populate("admin", "username avatarUrl")
-			.lean();
+			// Simplified approach: Get conversations and handle participant population manually
+			const conversations = await Conversation.find(matchStage)
+				.sort({ updatedAt: -1 })
+				.limit(parsedLimit)
+				.populate("admin", "username avatarUrl")
+				.lean();
 
-		// Optimize: Collect all participant IDs first to avoid N+1 queries
-		const allParticipantIds = new Set();
-		
-		conversations.forEach(conversation => {
-			if (conversation.participants && conversation.participants.length > 0) {
-				const firstParticipant = conversation.participants[0];
-				
-				// Check if it's new structure (has userId field)
-				if (firstParticipant && typeof firstParticipant === 'object' && firstParticipant.userId) {
-					// New structure - participants have userId field
-					conversation.participants.forEach(participant => {
-						if (participant.userId) {
-							allParticipantIds.add(participant.userId.toString());
-						}
-					});
-				} else {
-					// Old structure - participants are ObjectIds (string or ObjectId objects)
-					conversation.participants.forEach(participantId => {
-						// Convert ObjectId to string for consistent handling
-						const idString = participantId.toString ? participantId.toString() : participantId;
-						allParticipantIds.add(idString);
-					});
+			// Optimize: Collect all participant IDs first to avoid N+1 queries
+			const allParticipantIds = new Set();
+
+			conversations.forEach(conversation => {
+				if (conversation.participants && conversation.participants.length > 0) {
+					const firstParticipant = conversation.participants[0];
+
+					// Check if it's new structure (has userId field)
+					if (firstParticipant && typeof firstParticipant === 'object' && firstParticipant.userId) {
+						// New structure - participants have userId field
+						conversation.participants.forEach(participant => {
+							if (participant.userId) {
+								allParticipantIds.add(participant.userId.toString());
+							}
+						});
+					} else {
+						// Old structure - participants are ObjectIds (string or ObjectId objects)
+						conversation.participants.forEach(participantId => {
+							// Convert ObjectId to string for consistent handling
+							const idString = participantId.toString ? participantId.toString() : participantId;
+							allParticipantIds.add(idString);
+						});
+					}
 				}
-			}
-		});
+			});
 
-		// Fetch all users at once
-		const allUsers = await User.find({ _id: { $in: Array.from(allParticipantIds) } })
-			.select("username avatarUrl email")
-			.lean();
-		
-		// Create a user lookup map for faster access
-		const userMap = new Map();
-		allUsers.forEach(user => {
-			userMap.set(user._id.toString(), user);
-		});
+			// Fetch all users at once
+			const allUsers = await User.find({ _id: { $in: Array.from(allParticipantIds) } })
+				.select("username avatarUrl email")
+				.lean();
 
-		// Handle participant population for both old and new structures
-		conversations.forEach(conversation => {
-			if (conversation.participants && conversation.participants.length > 0) {
-				const firstParticipant = conversation.participants[0];
-				
-				// Check if it's new structure (has userId field)
-				if (firstParticipant && typeof firstParticipant === 'object' && firstParticipant.userId) {
-					// New structure - participants have userId field
-					conversation.participants = conversation.participants.map(participant => ({
-						...participant,
-						user: userMap.get(participant.userId.toString())
-					}));
-				} else {
-					// Old structure - participants are ObjectIds (string or ObjectId objects)
-					conversation.participants = conversation.participants.map(participantId => {
-						const idString = participantId.toString ? participantId.toString() : participantId;
-						return {
-							userId: participantId,
-							lastReadMessageId: null,
-							lastReadAt: null,
-							joinedAt: new Date(),
-							user: userMap.get(idString)
-						};
-					});
+			// Create a user lookup map for faster access
+			const userMap = new Map();
+			allUsers.forEach(user => {
+				userMap.set(user._id.toString(), user);
+			});
+
+			// Handle participant population for both old and new structures
+			conversations.forEach(conversation => {
+				if (conversation.participants && conversation.participants.length > 0) {
+					const firstParticipant = conversation.participants[0];
+
+					// Check if it's new structure (has userId field)
+					if (firstParticipant && typeof firstParticipant === 'object' && firstParticipant.userId) {
+						// New structure - participants have userId field
+						conversation.participants = conversation.participants.map(participant => ({
+							...participant,
+							user: userMap.get(participant.userId.toString())
+						}));
+					} else {
+						// Old structure - participants are ObjectIds (string or ObjectId objects)
+						conversation.participants = conversation.participants.map(participantId => {
+							const idString = participantId.toString ? participantId.toString() : participantId;
+							return {
+								userId: participantId,
+								lastReadMessageId: null,
+								lastReadAt: null,
+								joinedAt: new Date(),
+								user: userMap.get(idString)
+							};
+						});
+					}
 				}
-			}
-		});
+			});
 
 			// Enrich conversations with proper lastMessage including read status
 			const enrichedConversations = await Promise.all(
@@ -513,7 +512,7 @@ export class ConversationController {
 			// Handle participant population manually like in getUserConversations
 			if (conversation.participants && conversation.participants.length > 0) {
 				const firstParticipant = conversation.participants[0];
-				
+
 				// Check if it's new structure (has userId field)
 				if (firstParticipant && typeof firstParticipant === 'object' && firstParticipant.userId) {
 					// New structure - participants have userId field
@@ -521,7 +520,7 @@ export class ConversationController {
 					const users = await User.find({ _id: { $in: participantIds } })
 						.select("username avatarUrl email")
 						.lean();
-					
+
 					// Add user data to existing structure
 					conversation.participants = conversation.participants.map(participant => ({
 						...participant,
@@ -533,7 +532,7 @@ export class ConversationController {
 					const users = await User.find({ _id: { $in: participantIds } })
 						.select("username avatarUrl email")
 						.lean();
-					
+
 					// Transform to new structure
 					conversation.participants = participantIds.map(participantId => {
 						const idString = participantId.toString ? participantId.toString() : participantId;
@@ -735,13 +734,13 @@ export class ConversationController {
 			const { page = 1, limit = 20 } = req.query;
 			const skip = (page - 1) * limit;
 
-		let searchQuery = {
-			$or: [
-				{ "participants.userId": userId },
-				{ "participants": userId }
-			],
-			isActive: true,
-		};
+			let searchQuery = {
+				$or: [
+					{ "participants.userId": userId },
+					{ "participants": userId }
+				],
+				isActive: true,
+			};
 
 			if (searchDTO.query) {
 				searchQuery.name = { $regex: searchDTO.query, $options: "i" };

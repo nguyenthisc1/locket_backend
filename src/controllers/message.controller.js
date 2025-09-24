@@ -37,13 +37,11 @@ export class MessageController {
 
       // Get the latest message in the conversation
       // Retrieve the latest non-deleted message in the conversation
-      // Fetch the last message and populate senderId to get username and avatarUrl
       const lastMessage = await Message.findOne({
         conversationId: conversationId,
         isDeleted: false
       })
-        .sort({ createdAt: -1 })
-        .populate('senderId', 'username avatarUrl');
+        .sort({ createdAt: -1 });
 
       if (lastMessage) {
         await conversation.updateParticipantLastRead(userId, lastMessage._id);
@@ -72,20 +70,14 @@ export class MessageController {
       }
 
       if (global.socketService) {
-        // Send a minimal message object for the read receipt, with sender as an object
+        // Send a minimal message object for the read receipt
         await global.socketService.markConversationReadReceipt(
           conversation.id,
           lastMessage
             ? {
               messageId: lastMessage._id,
               text: lastMessage.text || (lastMessage.attachments && lastMessage.attachments.length > 0 ? "Media" : ""),
-              sender: lastMessage.senderId
-                ? {
-                  _id: lastMessage.senderId._id,
-                  username: lastMessage.senderId.username,
-                  avatarUrl: lastMessage.senderId.avatarUrl
-                }
-                : null,
+              senderId: lastMessage.senderId,
               timestamp: lastMessage.createdAt,
             }
             : null,
@@ -205,7 +197,7 @@ export class MessageController {
           replyInfo = {
             messageId: replyMessage._id,
             text: replyMessage.text || 'Media',
-            senderName: replyMessage.senderId.username,
+            senderName: 'User', // Since senderId is no longer populated, we use a generic name
             attachmentType: replyMessage.attachments?.[0]?.type
           };
         }
@@ -267,12 +259,11 @@ export class MessageController {
       await message.save();
 
       // Populate message data
-      await message.populate('senderId', 'username avatarUrl');
       await message.populate('replyTo');
-      await message.populate('forwardedFrom', 'username avatarUrl');
+      await message.populate('forwardedFrom');
 
       // Prepare response DTO for the new message
-      const response = MessageResponseDTO.fromMessage(message, message.senderId);
+      const response = MessageResponseDTO.fromMessage(message);
 
       // Update the conversation's last message reference
       await conversation.updateLastMessage(message);
@@ -286,11 +277,7 @@ export class MessageController {
         lastMessage: {
           messageId: message._id,
           text: message.text || (message.attachments?.length ? 'Media' : ''),
-          sender: {
-            _id: message.senderId._id,
-            username: message.senderId.username,
-            avatarUrl: message.senderId.avatarUrl
-          },
+          senderId: message.senderId,
           timestamp: message.createdAt,
         },
         updatedAt: new Date()
@@ -323,12 +310,12 @@ export class MessageController {
       await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
         await global.socketService.sendMessageUpdate(
           message.conversationId,
-          MessageResponseDTO.fromMessage(message, message.senderId).toJSON()
+          MessageResponseDTO.fromMessage(message).toJSON()
         );
       }
 
       // Debug log for message response DTO
-      console.log('[MessageController] Message sent:', MessageResponseDTO.fromMessage(message, message.senderId).toJSON());
+      console.log('[MessageController] Message sent:', MessageResponseDTO.fromMessage(message).toJSON());
 
       // Update thread info if this is a thread message
       if (threadInfo) {
@@ -445,11 +432,10 @@ export class MessageController {
         _id: messageId,
         isDeleted: false
       })
-        .populate('senderId', 'username avatarUrl')
         .populate('replyTo')
         .populate('replyInfo.messageId')
-        .populate('forwardedFrom', 'username avatarUrl')
-        .populate('forwardInfo.originalSenderId', 'username avatarUrl');
+        .populate('forwardedFrom')
+        .populate('forwardInfo.originalSenderId');
       console.log("🚀 ~ MessageController ~ getMessage ~ message:", message)
 
       if (!message) {
@@ -470,7 +456,7 @@ export class MessageController {
         return res.status(403).json(createErrorResponse("message.unauthorizedAccess", null, null, detectLanguage(req)));
       }
 
-      const response = MessageResponseDTO.fromMessage(message, message.senderId);
+      const response = MessageResponseDTO.fromMessage(message);
 
       res.json(createSuccessResponse("message.messageRetrieved", response.toJSON(), detectLanguage(req)));
     } catch (error) {
@@ -517,9 +503,7 @@ export class MessageController {
 
       await message.editMessage(updateDTO.text);
 
-      await message.populate('senderId', 'username avatarUrl');
-
-      const response = MessageResponseDTO.fromMessage(message, message.senderId);
+      const response = MessageResponseDTO.fromMessage(message);
 
       res.json(createSuccessResponse("message.messageUpdated", response.toJSON(), detectLanguage(req)));
     } catch (error) {
@@ -598,9 +582,7 @@ export class MessageController {
 
       await message.addReaction(userId, addDTO.reactionType);
 
-      await message.populate('senderId', 'username avatarUrl');
-
-      const response = MessageResponseDTO.fromMessage(message, message.senderId);
+      const response = MessageResponseDTO.fromMessage(message);
 
       res.json(createSuccessResponse("message.reactionAdded", response.toJSON(), detectLanguage(req)));
     } catch (error) {
@@ -648,9 +630,7 @@ export class MessageController {
 
       await message.removeReaction(userId, reactionType);
 
-      await message.populate('senderId', 'username avatarUrl');
-
-      const response = MessageResponseDTO.fromMessage(message, message.senderId);
+      const response = MessageResponseDTO.fromMessage(message);
 
       res.json(createSuccessResponse("message.reactionRemoved", response.toJSON(), detectLanguage(req)));
     } catch (error) {
@@ -721,7 +701,7 @@ export class MessageController {
             forwardInfo: {
               originalMessageId: originalMessage._id,
               originalSenderId: originalMessage.senderId,
-              originalSenderName: originalMessage.senderId.username,
+              originalSenderName: 'User', // Since senderId is no longer populated, we use a generic name
               originalConversationId: originalMessage.conversationId,
               originalConversationName: originalConversation.name,
               forwardedAt: new Date()
@@ -734,9 +714,8 @@ export class MessageController {
           });
 
           await forwardedMessage.save();
-          await forwardedMessage.populate('senderId', 'username avatarUrl');
 
-          const messageResponse = MessageResponseDTO.fromMessage(forwardedMessage, forwardedMessage.senderId);
+          const messageResponse = MessageResponseDTO.fromMessage(forwardedMessage);
           forwardedMessages.push(messageResponse.toJSON());
         } catch (error) {
           console.error(`Error forwarding message ${messageId}:`, error);
@@ -803,7 +782,7 @@ export class MessageController {
         replyInfo: {
           messageId: parentMessage._id,
           text: parentMessage.text || 'Media',
-          senderName: parentMessage.senderId.username,
+          senderName: 'User', // Since senderId is no longer populated, we use a generic name
           attachmentType: parentMessage.attachments?.[0]?.type
         },
         threadInfo: {
@@ -837,10 +816,9 @@ export class MessageController {
       // Auto-mark the reply message as read for the sender
       await conversation.updateParticipantLastRead(userId, replyMessage._id);
 
-      await replyMessage.populate('senderId', 'username avatarUrl');
       await replyMessage.populate('replyTo');
 
-      const response = MessageResponseDTO.fromMessage(replyMessage, replyMessage.senderId);
+      const response = MessageResponseDTO.fromMessage(replyMessage);
 
       res.status(201).json(createSuccessResponse("message.messageReplied", response.toJSON(), detectLanguage(req)));
     } catch (error) {
@@ -886,7 +864,6 @@ export class MessageController {
         replyTo: messageId,
         isDeleted: false
       })
-        .populate('senderId', 'username avatarUrl')
         .populate('replyTo')
         .sort({ createdAt: 1 })
         .limit(parseInt(limit))
@@ -969,7 +946,6 @@ export class MessageController {
       }
 
       const messages = await Message.find(searchQuery)
-        .populate('senderId', 'username avatarUrl')
         .populate('conversationId', 'name')
         .sort({ createdAt: -1 })
         .limit(parseInt(limit))

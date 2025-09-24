@@ -62,7 +62,6 @@ class SocketService {
 
     // Send message update (edit)
     async sendMessageUpdate(conversationId, data) {
-        console.log('socket 123' + data)
         try {
             if (!this.socketManager) return;
 

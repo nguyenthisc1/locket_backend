@@ -54,7 +54,7 @@ class SocketManager {
         console.log(`❌ User disconnected: ${socket.userId} - Reason: ${reason}`);
         this.userSockets.delete(socket.userId);
         this.socketUsers.delete(socket.id);
-        
+
         // Emit offline status to friends
         this.handleUserOffline(socket);
       });
@@ -71,6 +71,12 @@ class SocketManager {
       // Handle online status
       socket.on('user:online', () => {
         this.handleUserOnline(socket);
+      });
+
+      // Handle message send
+      socket.on('message:send', (data) => {
+        console.log('message:send data', JSON.stringify(data, null, 2))
+        this.handleMessageSend(socket, data);
       });
 
       // Handle message read receipts
@@ -169,7 +175,7 @@ class SocketManager {
   async joinUserToExistingConversations(socket) {
     try {
       const { default: Conversation } = await import('../models/conversation.model.js');
-      
+
       const conversations = await Conversation.find({
         participants: socket.userId,
         isActive: true
@@ -235,12 +241,24 @@ class SocketManager {
     });
   }
 
+  // Handle message send
+  handleMessageSend(socket, data) {
+    const { conversationId } = data;
+    console.log('Check message', JSON.stringify(data, null, 2));
+
+    this.io.to(`conversation:${conversationId}`).emit('message:send', {
+      conversationId: conversationId,
+      data
+    });
+  }
+
   // Handle message read
   handleMessageRead(socket, data) {
     const { messageId, conversationId } = data;
+    console.log('Check message', JSON.stringify(data, null, 2));
     this.io.to(`conversation:${conversationId}`).emit('message:read', {
-      conversationId,
       messageId,
+      conversationId,
       userId: socket.userId,
       timestamp: new Date()
     });
