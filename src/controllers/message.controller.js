@@ -168,6 +168,7 @@ export class MessageController {
       }
 
       const createDTO = new CreateMessageDTO(req.body);
+      console.log('message DTO response', createDTO)
       const userId = req.user._id;
 
       // Verify conversation exists and user is participant
@@ -289,14 +290,14 @@ export class MessageController {
         await global.socketService.sendNewMessage(
           message.conversationId,
           response.toJSON(),
-          userId
+          message.senderId
         );
 
         // Notify conversation list (sidebar) of the last message update
         await global.socketService.sendConversationUpdate(
           message.conversationId,
           lastMessagePayload,
-          userId
+          message.senderId
         );
       }
 

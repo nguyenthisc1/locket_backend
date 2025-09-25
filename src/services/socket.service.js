@@ -33,7 +33,10 @@ class SocketService {
             } else {
 
                 console.log(`🔥 Emit message:send to room=${room}`, data);
-                this.socketManager.io.to(room).emit("message:send", data);
+                this.socketManager.io.to(room).emit("message:send", {
+                    conversationId,
+                    data,
+                });
             }
 
             console.log(`Message sent to conversation ${conversationId}`);

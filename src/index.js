@@ -23,7 +23,7 @@ validateEnv();
 
 const app = express();
 const server = createServer(app);
-const PORT = validateEnv.PORT || 8000;
+const PORT = validateEnv.PORT || 8080;
 const API_VERSION = "api/v1";
 
 // Initialize Socket.IO

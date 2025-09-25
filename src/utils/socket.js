@@ -244,7 +244,7 @@ class SocketManager {
   // Handle message send
   handleMessageSend(socket, data) {
     const { conversationId } = data;
-    console.log('Check message', JSON.stringify(data, null, 2));
+    console.log('Check send message', JSON.stringify(data, null, 2));
 
     this.io.to(`conversation:${conversationId}`).emit('message:send', {
       conversationId: conversationId,
@@ -255,7 +255,7 @@ class SocketManager {
   // Handle message read
   handleMessageRead(socket, data) {
     const { messageId, conversationId } = data;
-    console.log('Check message', JSON.stringify(data, null, 2));
+    // console.log('Check message', JSON.stringify(data, null, 2));
     this.io.to(`conversation:${conversationId}`).emit('message:read', {
       messageId,
       conversationId,
