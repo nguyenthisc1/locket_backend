@@ -66,7 +66,7 @@ export class MessageController {
           },
           { $set: { status: "read" } }
         );
-      
+
       }
 
       if (global.socketService) {
@@ -286,29 +286,36 @@ export class MessageController {
 
       // Emit socket events if socketService is available
       if (global.socketService) {
+
+        // Notify conversation list (sidebar) of the last message update
+        const participants = conversation.participants.map(p =>
+          p.userId ? p.userId.toString() : p.toString()
+        );
+
         // Notify chat detail screen participants of the new message
         await global.socketService.sendNewMessage(
           message.conversationId,
           response.toJSON(),
-          message.senderId
+          userId
         );
 
-        // Notify conversation list (sidebar) of the last message update
+        // Notify list conversatio screen participants of the new message
         await global.socketService.sendConversationUpdate(
           message.conversationId,
           lastMessagePayload,
-          message.senderId
+          participants,
+          userId
         );
       }
 
       // Update the message status to 'delivered'
-      
+
       await message.updateStatus('delivered');
-      
+
       // Emit a message status update event
       if (global.socketService) {
-              // Introduce a short delay before updating the message status to 'delivered'
-      await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+        // Introduce a short delay before updating the message status to 'delivered'
+        await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
         await global.socketService.sendMessageUpdate(
           message.conversationId,
           MessageResponseDTO.fromMessage(message).toJSON()

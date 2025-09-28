@@ -125,17 +125,28 @@ class SocketService {
     }
 
     // Send conversation update
-    async sendConversationUpdate(conversationId, updateData, userId) {
+    async sendConversationUpdate(conversationId, updateData, participants, userId) {
+
         try {
             if (!this.socketManager) return;
 
-            this.socketManager.io.to(`conversation:${conversationId}`).emit('conversation:updated', {
+            const payload = {
                 conversationId,
-                updateData,
+                updateData: updateData,
                 updatedBy: userId,
-                timestamp: new Date()
-            });
+                timestamp: new Date().toISOString()
+            };
 
+            this.socketManager.io
+                .to(`conversation:${conversationId}`)
+                .emit('conversation:updated', payload);
+
+            await this.emitToConversationParticipants(
+                'conversation:listUpdated',
+                payload,
+                participants,
+                userId
+            );
             console.log(`Conversation update sent for ${conversationId}`);
         } catch (error) {
             console.error('Send conversation update error:', error);
@@ -384,6 +395,13 @@ class SocketService {
     // ===========================================
     // HELPER METHODS
     // ===========================================
+    // Emit to conversation particitpants
+    async emitToConversationParticipants(event, payload, participants, excludeUserId = null) {
+        for (const participantId of participants) {
+            if (participantId === excludeUserId) continue;
+            this.socketManager.io.to(`user:${participantId}`).emit(event, payload);
+        }
+    }
 
     // Check if socket manager is available
     isAvailable() {

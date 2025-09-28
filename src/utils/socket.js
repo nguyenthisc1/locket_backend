@@ -45,6 +45,8 @@ class SocketManager {
 
       // Join user to their personal room
       socket.join(`user:${socket.userId}`);
+      console.log(`🚪 User ${socket.userId} joined room: user:${socket.userId}`);
+      console.log(`🔍 Socket rooms after join:`, Array.from(socket.rooms));
 
       // Auto-join user to their conversation rooms
       // this.joinUserToExistingConversations(socket);
