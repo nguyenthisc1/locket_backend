@@ -21,7 +21,7 @@ export class MessageController {
       const { conversationId } = req.params;
       const userId = req.user._id;
 
-      // Find the conversation and verify access
+      // Fetch the conversation and manually populate participants with user info
       const conversation = await Conversation.findOne({
         _id: conversationId,
         $or: [
@@ -29,58 +29,117 @@ export class MessageController {
           { "participants": userId }
         ],
         isActive: true
-      });
+      }).lean();
 
       if (!conversation) {
         return res.status(404).json(createErrorResponse("conversation.conversationNotFound", null, null, detectLanguage(req)));
       }
 
-      // Get the latest message in the conversation
-      // Retrieve the latest non-deleted message in the conversation
+      // Get the latest non-deleted message in the conversation
       const lastMessage = await Message.findOne({
         conversationId: conversationId,
         isDeleted: false
-      })
-        .sort({ createdAt: -1 });
+      }).sort({ createdAt: -1 });
 
       if (lastMessage) {
-        await conversation.updateParticipantLastRead(userId, lastMessage._id);
+        // Update participant's last read message
+        const ConversationModel = (await import('../models/conversation.model.js')).default;
+        const convDoc = await ConversationModel.findById(conversationId);
+        if (convDoc) {
+          await convDoc.updateParticipantLastRead(userId, lastMessage._id);
+        }
 
-        // Update message status to read
-        // await Message.updateMany(
-        //   {
-        //     conversationId,
-        //     senderId: { $ne: userId },
-        //     _id: { $lte: lastMessage._id },
-        //     status: { $ne: "read" }
-        //   },
-        //   { $set: { status: "read" } }
-        // );
-
+        // Mark all messages as read for this user
         await Message.updateMany(
           {
             conversationId,
             senderId: { $ne: userId },
-            createdAt: { $lte: lastMessage.createdAt }, // all messages <= lastMessage
+            createdAt: { $lte: lastMessage.createdAt },
             status: { $ne: "read" }
           },
           { $set: { status: "read" } }
         );
+      }
 
+      // Determine participant structure and collect all participant userIds
+      let participantUserIds = [];
+      if (conversation.participants && conversation.participants.length > 0) {
+        const firstParticipant = conversation.participants[0];
+        if (firstParticipant && typeof firstParticipant === 'object' && firstParticipant.userId) {
+          // New structure
+          participantUserIds = conversation.participants.map(p => p.userId.toString());
+        } else {
+          // Old structure
+          participantUserIds = conversation.participants.map(p =>
+            p.toString ? p.toString() : p
+          );
+        }
+      }
+
+      // Fetch user info for all participants
+      const users = await (await import('../models/user.model.js')).default.find({ _id: { $in: participantUserIds } })
+        .select('username avatarUrl email')
+        .lean();
+
+      const userMap = new Map();
+      users.forEach(user => {
+        userMap.set(user._id.toString(), user);
+      });
+
+      // Build participants array with user info and conversation fields
+      let participants = [];
+      if (conversation.participants && conversation.participants.length > 0) {
+        const firstParticipant = conversation.participants[0];
+        if (firstParticipant && typeof firstParticipant === 'object' && firstParticipant.userId) {
+          // New structure
+          participants = conversation.participants.map(participant => ({
+            userId: participant.userId.toString(),
+            username: userMap.get(participant.userId.toString())?.username || null,
+            email: userMap.get(participant.userId.toString())?.email || null,
+            avatarUrl: userMap.get(participant.userId.toString())?.avatarUrl || null,
+            lastReadMessageId: participant.lastReadMessageId || null,
+            lastReadAt: participant.lastReadAt || null,
+            joinedAt: participant.joinedAt || null
+          }));
+        } else {
+          // Old structure
+          participants = conversation.participants.map(participantId => {
+            const idString = participantId.toString ? participantId.toString() : participantId;
+            const user = userMap.get(idString);
+            return {
+              userId: idString,
+              username: user?.username || null,
+              email: user?.email || null,
+              avatarUrl: user?.avatarUrl || null,
+              lastReadMessageId: null,
+              lastReadAt: null,
+              joinedAt: conversation.createdAt || null
+            };
+          });
+        }
       }
 
       if (global.socketService) {
-        // Send a minimal message object for the read receipt
-        await global.socketService.markConversationReadReceipt(
-          conversation.id,
-          lastMessage
+        const participantIds = participants.map(p => p.userId);
+
+        const payload = {
+          conversationId: conversation._id || conversationId,
+          participants,
+          lastMessage: lastMessage
             ? {
               messageId: lastMessage._id,
-              text: lastMessage.text || (lastMessage.attachments && lastMessage.attachments.length > 0 ? "Media" : ""),
+              text: lastMessage.text || (lastMessage.attachments?.length ? 'Media' : ''),
               senderId: lastMessage.senderId,
               timestamp: lastMessage.createdAt,
             }
             : null,
+          updatedAt: new Date()
+        };
+
+        await global.socketService.markConversationReadReceipt(
+          conversation._id ? conversation._id.toString() : conversationId,
+          payload,
+          participantIds,
           userId
         );
       }
@@ -390,7 +449,7 @@ export class MessageController {
     try {
       const { conversationId } = req.params;
       const userId = req.user._id;
-      const { limit = 50, lastCreatedAt } = req.query;
+      const { limit = 20, lastCreatedAt } = req.query;
       const parsedLimit = parseInt(limit);
 
       // Verify conversation access (support both old and new participant structures)
@@ -428,7 +487,6 @@ export class MessageController {
       res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
     }
   }
-
 
   // Get message by ID
   static async getMessage(req, res) {

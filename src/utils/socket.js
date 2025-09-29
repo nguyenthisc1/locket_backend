@@ -256,11 +256,10 @@ class SocketManager {
 
   // Handle message read
   handleMessageRead(socket, data) {
-    const { messageId, conversationId } = data;
-    // console.log('Check message', JSON.stringify(data, null, 2));
+    const {  conversationId, lastReadMessage } = data;
     this.io.to(`conversation:${conversationId}`).emit('message:read', {
-      messageId,
       conversationId,
+      lastReadMessage,
       userId: socket.userId,
       timestamp: new Date()
     });

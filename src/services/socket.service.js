@@ -46,16 +46,31 @@ class SocketService {
     }
 
     // Send message read receipt
-    async markConversationReadReceipt(conversationId, lastReadMessage, userId) {
+    async markConversationReadReceipt(conversationId, updateData, participants, userId) {
         try {
             if (!this.socketManager) return;
 
+            const payload = {
+                conversationId,
+                updateData: updateData,
+                updatedBy: userId,
+                timestamp: new Date().toISOString()
+            };
+
             this.socketManager.io.to(`conversation:${conversationId}`).emit('message:read', {
                 conversationId,
-                lastReadMessage,
+                lastMessage: updateData.lastMessage,
                 userId,
-                timestamp: new Date()
+                timestamp: new Date().toISOString()
             });
+
+
+            await this.emitToConversationParticipants(
+                'conversation:listUpdated',
+                payload,
+                participants,
+                userId
+            );
 
             console.log(`Read receipt sent for conversation ${conversationId} by user ${userId}`);
         } catch (error) {
@@ -395,10 +410,12 @@ class SocketService {
     // ===========================================
     // HELPER METHODS
     // ===========================================
-    // Emit to conversation particitpants
+    // Emit to conversation participants
     async emitToConversationParticipants(event, payload, participants, excludeUserId = null) {
-        for (const participantId of participants) {
-            if (participantId === excludeUserId) continue;
+        for (const participant of participants) {
+            // Handle both old (ObjectId) and new (object with userId) participant structures
+            const participantId = participant.userId || participant;
+            if (participantId.toString() === excludeUserId?.toString()) continue;
             this.socketManager.io.to(`user:${participantId}`).emit(event, payload);
         }
     }
