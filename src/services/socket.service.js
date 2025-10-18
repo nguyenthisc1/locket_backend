@@ -39,6 +39,8 @@ class SocketService {
                 });
             }
 
+            this.socketManager.
+
             console.log(`Message sent to conversation ${conversationId}`);
         } catch (error) {
             console.error("Send new message error:", error);

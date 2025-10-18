@@ -121,15 +121,15 @@ export class AuthController {
 			console.log(isMatch);
 
 			// Generate tokens
-			const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-			const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+			const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN });
+			const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN });
 
 			// Set tokens in httpOnly cookies
 			res.cookie("accessToken", accessToken, {
 				httpOnly: true,
 				secure: process.env.NODE_ENV === "production",
 				sameSite: "Strict",
-				maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+				maxAge: 7 * 60 * 1000, // 7 days
 			});
 			res.cookie("refreshToken", refreshToken, {
 				httpOnly: true,

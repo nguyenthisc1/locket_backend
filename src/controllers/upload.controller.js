@@ -6,7 +6,7 @@ import { createSuccessResponse, createErrorResponse, createValidationErrorRespon
 
 export class UploadController {
 
-  // Upload media (photo/video) to Cloudinary only
+	// Upload media (photo/video) to Cloudinary only
 	static async uploadMedia(req, res) {
 		try {
 			const errors = validationResult(req);
@@ -24,13 +24,13 @@ export class UploadController {
 			if (req.file) {
 				// Detect media type from file
 				isVideo = req.file.mimetype.startsWith('video/');
-				
+
 				// Add additional logging to debug video detection
 				console.log('🔍 Video Detection Debug:');
 				console.log('- File mimetype:', req.file.mimetype);
 				console.log('- Detected as video:', isVideo);
 				console.log('- Buffer length:', req.file.buffer?.length);
-				
+
 				// Double-check with buffer analysis if mimetype detection fails
 				if (!isVideo && req.file.buffer) {
 					const bufferIsVideo = CloudinaryService.isVideoBuffer(req.file.buffer);
@@ -40,13 +40,13 @@ export class UploadController {
 						console.log('- Overriding mimetype detection with buffer analysis');
 					}
 				}
-				
+
 				const folder = isVideo ? `locket-users/${req.user._id}/videos` : `locket-users/${req.user._id}/photos`;
 				const prefix = isVideo ? 'video' : 'photo';
-				
+
 				console.log(`📁 Uploading ${isVideo ? 'video' : 'image'} to folder: ${folder}`);
 				console.log(`🏷️  Using prefix: ${prefix}`);
-				
+
 				cloudinaryResult = await CloudinaryService.uploadMedia(req.file.buffer, {
 					folder,
 					public_id: `${prefix}_${Date.now()}_${req.user._id}`,
@@ -125,7 +125,127 @@ export class UploadController {
 		}
 	}
 
-  // Upload multiple media files (photos/videos)
+	static async uploadFeed(req, res) {
+		try {
+			const errors = validationResult(req);
+			if (!errors.isEmpty()) {
+				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
+			}
+
+			let cloudinaryResult;
+			let isVideo = false;
+
+			// Handle file upload via multer
+			if (req.file) {
+				// Detect media type from file
+				isVideo = req.file.mimetype.startsWith('video/');
+
+				// Double-check with buffer analysis if mimetype detection fails
+				if (!isVideo && req.file.buffer) {
+					const bufferIsVideo = CloudinaryService.isVideoBuffer(req.file.buffer);
+					console.log('- Buffer analysis says video:', bufferIsVideo);
+					if (bufferIsVideo) {
+						isVideo = true;
+						console.log('- Overriding mimetype detection with buffer analysis');
+					}
+				}
+
+				const folder = isVideo ? `locket-users/${req.user._id}/videos` : `locket-users/${req.user._id}/photos`;
+				const prefix = isVideo ? 'video' : 'photo';
+
+				console.log(`📁 Uploading ${isVideo ? 'video' : 'image'} to folder: ${folder}`);
+				console.log(`🏷️  Using prefix: ${prefix}`);
+
+				cloudinaryResult = await CloudinaryService.uploadMedia(req.file.buffer, {
+					folder,
+					public_id: `${prefix}_${Date.now()}_${req.user._id}`,
+					resource_type: isVideo ? "video" : "auto"
+				});
+			} else {
+				return res.status(400).json(createErrorResponse("upload.noFileProvided", null, null, detectLanguage(req)));
+			}
+
+			// Log upload result
+			console.log("Upload completed:");
+			console.log("- Cloudinary URL:", cloudinaryResult.url);
+			console.log("- Detected as:", isVideo ? 'video' : 'image');
+			console.log("- Resource type:", cloudinaryResult.resource_type);
+			console.log("- Duration:", cloudinaryResult.duration);
+
+			// // Automatically create feed after successful upload
+			// const feedData = {
+			// 	url: cloudinaryResult.url,
+			// 	publicId: cloudinaryResult.public_id,
+			// 	mediaType: isVideo ? 'video' : 'image',
+			// 	caption: req.body.caption || "",
+			// 	isFrontCamera: req.body.isFrontCamera ?? true,
+			// 	sharedWith: req.body.sharedWith || [],
+			// 	location: req.body.location || null,
+			// 	duration: cloudinaryResult.duration,
+			// 	format: cloudinaryResult.format,
+			// 	width: cloudinaryResult.width,
+			// 	height: cloudinaryResult.height,
+			// 	fileSize: cloudinaryResult.bytes
+			// };
+
+			// // Create feed entry in database
+			// const feed = await Feed.create({
+			// 	userId: req.user._id,
+			// 	imageUrl: feedData.url,
+			// 	publicId: feedData.publicId,
+			// 	caption: feedData.caption,
+			// 	isFrontCamera: feedData.isFrontCamera,
+			// 	sharedWith: feedData.sharedWith,
+			// 	location: feedData.location,
+			// 	mediaType: feedData.mediaType,
+			// 	duration: feedData.mediaType === 'video' ? feedData.duration : undefined,
+			// 	format: feedData.format,
+			// 	width: feedData.width,
+			// 	height: feedData.height,
+			// 	fileSize: feedData.fileSize
+			// });
+
+			// // Populate user data
+			// const populatedFeed = await Feed.findById(feed._id)
+			// 	.populate("userId", "username avatarUrl")
+			// 	.populate("sharedWith", "username avatarUrl");
+
+			// const feedResponse = FeedResponseDTO.fromFeed(populatedFeed);
+
+			// Return both upload success and created feed
+
+			const mediaResponse = {
+				// url: cloudinaryResult.url,
+				// publicId: cloudinaryResult.public_id,
+				// mediaType: isVideo ? 'video' : 'image',
+				// format: cloudinaryResult.format,
+				// width: cloudinaryResult.width,
+				// height: cloudinaryResult.height,
+				// duration: cloudinaryResult.duration,
+				// fileSize: cloudinaryResult.bytes,
+				// resourceType: cloudinaryResult.resource_type
+				url: cloudinaryResult.url,
+				publicId: cloudinaryResult.public_id,
+				mediaType: isVideo ? 'video' : 'image',
+				isFrontCamera: req.body.isFrontCamera ?? true,
+				location: req.body.location || null,
+				duration: cloudinaryResult.duration,
+				format: cloudinaryResult.format,
+				width: cloudinaryResult.width,
+				height: cloudinaryResult.height,
+				fileSize: cloudinaryResult.bytes
+			}
+
+			const successMessage = isVideo ? "upload.videoUploaded" : "upload.fileUploaded";
+			res.status(201).json(createSuccessResponse(successMessage, mediaResponse, detectLanguage(req)));
+		} catch (error) {
+			console.error("Media upload error:", error);
+			res.status(500).json(createErrorResponse("upload.uploadFailed", error.message, null, detectLanguage(req)));
+		}
+	}
+
+
+	// Upload multiple media files (photos/videos)
 	// static async uploadMultiplePhotos(req, res) {
 	// 	try {
 	// 		const { photos, media } = req.body; // Support both field names
@@ -154,7 +274,7 @@ export class UploadController {
 	// 				const isVideoData = CloudinaryService.isVideoBase64(mediaInput);
 	// 				const folder = isVideoData ? `locket-users/${req.user._id}/videos` : `locket-users/${req.user._id}/photos`;
 	// 				const prefix = isVideoData ? 'video' : 'photo';
-					
+
 	// 				// Upload to Cloudinary with proper folder
 	// 				const cloudinaryResult = await CloudinaryService.uploadMedia(mediaInput, {
 	// 					folder,

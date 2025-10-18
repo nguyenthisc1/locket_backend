@@ -8,7 +8,9 @@ const router = express.Router();
 router.use(authMiddleware);
 
 // Upload media (photo/video) to Cloudinary only
-router.post('/', uploadSingleMedia, handleUploadError, UploadController.uploadMedia);
+// router.post('/', uploadSingleMedia, handleUploadError, UploadController.uploadMedia);
+router.post('/feed', uploadSingleMedia, handleUploadError, UploadController.uploadFeed);
+router.post('/media', uploadSingleMedia, handleUploadError, UploadController.uploadMedia);
 
 // // Upload media (photos/videos) on cloudinary  
 // router.post('/upload-multiple', UploadController.uploadMultiplePhotos);
