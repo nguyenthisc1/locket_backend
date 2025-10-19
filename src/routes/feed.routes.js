@@ -1,6 +1,6 @@
 import express from "express";
 import { FeedController } from "../controllers/feed.controller.js";
-import { AddReactionDTO, CreateFeedDTO, UpdateFeedDTO } from "../dtos/index.js";
+import { AddReactionDTO, CreateFeedDTO, UpdateFeedDTO, UpdateFeedStatusDTO } from "../dtos/index.js";
 import authMiddleware from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -31,5 +31,8 @@ router.delete("/:feedId", FeedController.deleteFeed);
 // Feed reactions
 router.post("/:feedId/reactions", AddReactionDTO.validationRules(), FeedController.addReaction);
 router.delete("/:feedId/reactions/:reactionType", FeedController.removeReaction);
+
+// Update feed status
+router.patch("/:feedId/status", UpdateFeedStatusDTO.validationRules(), FeedController.updateFeedStatus);
 
 export default router;

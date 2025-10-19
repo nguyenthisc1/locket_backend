@@ -14,10 +14,10 @@ const feedSchema = new mongoose.Schema({
 	},
 	reactions: [reactionSchema],
 	// Media type and metadata
-	mediaType: { 
-		type: String, 
-		enum: ['image', 'video'], 
-		default: 'image' 
+	mediaType: {
+		type: String,
+		enum: ['image', 'video'],
+		default: 'image'
 	},
 	// Video-specific fields
 	duration: { type: Number }, // Duration in seconds for videos
@@ -25,12 +25,18 @@ const feedSchema = new mongoose.Schema({
 	width: { type: Number },
 	height: { type: Number },
 	fileSize: { type: Number }, // File size in bytes
+	// Feed status
+	status: {
+		type: String,
+		enum: ["uploading", "uploaded"],
+		default: "uploading"
+	},
 	createdAt: { type: Date, default: Date.now },
 	updatedAt: { type: Date, default: Date.now },
 });
 
 // Update the updatedAt field before saving
-feedSchema.pre('save', function(next) {
+feedSchema.pre('save', function (next) {
 	this.updatedAt = new Date();
 	next();
 });
@@ -41,5 +47,15 @@ feedSchema.index({ sharedWith: 1, createdAt: -1 });
 feedSchema.index({ caption: "text" });
 feedSchema.index({ publicId: 1 }); // Index for Cloudinary public ID
 feedSchema.index({ mediaType: 1 }); // Index for media type queries
+feedSchema.index({ status: 1 })
+
+// Method to update message status
+feedSchema.methods.updateStatus = function (newStatus) {
+	if (['uploading', 'uploaded'].includes(newStatus)) {
+		this.status = newStatus;
+		return this.save();
+	}
+	throw new Error('Invalid status');
+};
 
 export default mongoose.model("Feed", feedSchema);

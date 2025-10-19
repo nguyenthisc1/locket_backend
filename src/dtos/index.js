@@ -14,6 +14,7 @@ export {
   CreateFeedDTO,
   UpdateFeedDTO,
   AddReactionDTO,
+  UpdateFeedStatusDTO,
   FeedResponseDTO,
   FeedListResponseDTO,
   SearchFeedsDTO

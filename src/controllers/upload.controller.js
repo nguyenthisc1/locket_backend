@@ -172,48 +172,6 @@ export class UploadController {
 			console.log("- Resource type:", cloudinaryResult.resource_type);
 			console.log("- Duration:", cloudinaryResult.duration);
 
-			// // Automatically create feed after successful upload
-			// const feedData = {
-			// 	url: cloudinaryResult.url,
-			// 	publicId: cloudinaryResult.public_id,
-			// 	mediaType: isVideo ? 'video' : 'image',
-			// 	caption: req.body.caption || "",
-			// 	isFrontCamera: req.body.isFrontCamera ?? true,
-			// 	sharedWith: req.body.sharedWith || [],
-			// 	location: req.body.location || null,
-			// 	duration: cloudinaryResult.duration,
-			// 	format: cloudinaryResult.format,
-			// 	width: cloudinaryResult.width,
-			// 	height: cloudinaryResult.height,
-			// 	fileSize: cloudinaryResult.bytes
-			// };
-
-			// // Create feed entry in database
-			// const feed = await Feed.create({
-			// 	userId: req.user._id,
-			// 	imageUrl: feedData.url,
-			// 	publicId: feedData.publicId,
-			// 	caption: feedData.caption,
-			// 	isFrontCamera: feedData.isFrontCamera,
-			// 	sharedWith: feedData.sharedWith,
-			// 	location: feedData.location,
-			// 	mediaType: feedData.mediaType,
-			// 	duration: feedData.mediaType === 'video' ? feedData.duration : undefined,
-			// 	format: feedData.format,
-			// 	width: feedData.width,
-			// 	height: feedData.height,
-			// 	fileSize: feedData.fileSize
-			// });
-
-			// // Populate user data
-			// const populatedFeed = await Feed.findById(feed._id)
-			// 	.populate("userId", "username avatarUrl")
-			// 	.populate("sharedWith", "username avatarUrl");
-
-			// const feedResponse = FeedResponseDTO.fromFeed(populatedFeed);
-
-			// Return both upload success and created feed
-
 			const mediaResponse = {
 				// url: cloudinaryResult.url,
 				// publicId: cloudinaryResult.public_id,

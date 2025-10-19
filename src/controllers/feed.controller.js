@@ -1,7 +1,7 @@
 import Feed from "../models/feed.model.js";
 import User from "../models/user.model.js";
 import { validationResult } from "express-validator";
-import { CreateFeedDTO, UpdateFeedDTO, AddReactionDTO, FeedResponseDTO, FeedListResponseDTO, SearchFeedsDTO } from "../dtos/index.js";
+import { CreateFeedDTO, UpdateFeedDTO, AddReactionDTO, UpdateFeedStatusDTO, FeedResponseDTO, FeedListResponseDTO, SearchFeedsDTO } from "../dtos/index.js";
 import mongoose from "mongoose";
 import { createSuccessResponse, createErrorResponse, createValidationErrorResponse, detectLanguage } from "../utils/translations.js";
 
@@ -101,7 +101,7 @@ export class FeedController {
 
 	static async getFeeds(req, res) {
 		try {
-			const { query, limit =  10, lastCreatedAt, mediaType, userId, sharedWithMe } = req.query;
+			const { query, limit = 10, lastCreatedAt, mediaType, userId, sharedWithMe } = req.query;
 
 			console.log("Request query params:", req.query);
 			console.log("User ID from auth:", req.user._id);
@@ -191,7 +191,6 @@ export class FeedController {
 				{
 					$project: {
 						_id: 1,
-						userId: "$user._id",
 						imageUrl: 1,
 						publicId: 1,
 						caption: 1,
@@ -231,7 +230,7 @@ export class FeedController {
 
 			const feedListResponse = FeedListResponseDTO.fromAggregatedFeeds(feeds, pagination);
 			console.log(feedListResponse);
-			
+
 			res.json(createSuccessResponse("feed.feedsRetrieved", feedListResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Error fetching feeds (friends only):", error);
@@ -294,7 +293,7 @@ export class FeedController {
 				return res.status(400).json(createErrorResponse("validation.missingRequiredFields", "url, publicId, and mediaType are required", null, detectLanguage(req)));
 			}
 
-			// Create feed entry in database
+			// Use userId (not user) in the Feed schema, as required by Mongoose validation
 			const feedData = {
 				userId: req.user._id,
 				imageUrl: url,
@@ -308,7 +307,8 @@ export class FeedController {
 				format: format,
 				width: width,
 				height: height,
-				fileSize: fileSize
+				fileSize: fileSize,
+				status: 'uploaded' // Set initial status to uploaded since the file is already uploaded
 			};
 
 			const feed = await Feed.create(feedData);
@@ -317,6 +317,8 @@ export class FeedController {
 			const populatedFeed = await Feed.findById(feed._id).populate("userId", "username avatarUrl").populate("sharedWith", "username avatarUrl");
 
 			const feedResponse = FeedResponseDTO.fromFeed(populatedFeed);
+
+			console.log(feedResponse.toJSON())
 			res.status(201).json(createSuccessResponse("feed.feedCreated", feedResponse.toJSON(), detectLanguage(req)));
 		} catch (error) {
 			console.error("Error creating feed:", error);
@@ -522,6 +524,44 @@ export class FeedController {
 		} catch (error) {
 			console.error("Error fetching user feeds:", error);
 			res.status(500).json(createErrorResponse("general.serverError", error.message, null, detectLanguage(req)));
+		}
+	}
+
+	// Update feed status
+	static async updateFeedStatus(req, res) {
+		try {
+			const errors = validationResult(req);
+			if (!errors.isEmpty()) {
+				return res.status(400).json(createValidationErrorResponse(errors.array(), detectLanguage(req)));
+			}
+
+			const { feedId } = req.params;
+			const userId = req.user._id;
+			const updateStatusDTO = new UpdateFeedStatusDTO(req.body);
+
+			// Find the feed and verify user access
+			const feed = await Feed.findById(feedId);
+			if (!feed) {
+				return res.status(404).json(createErrorResponse("feed.feedNotFound", null, null, detectLanguage(req)));
+			}
+
+			// Check if user has access to this feed (owner or shared with)
+			const hasAccess = feed.userId.equals(userId) || feed.sharedWith.some((userId) => userId.equals(userId));
+			if (!hasAccess) {
+				return res.status(403).json(createErrorResponse("feed.unauthorizedFeedAccess", null, null, detectLanguage(req)));
+			}
+
+			// Update status
+			await feed.updateStatus(updateStatusDTO.status);
+
+			// Populate feed data for response
+			const updatedFeed = await Feed.findById(feedId).populate("userId", "username avatarUrl").populate("sharedWith", "username avatarUrl");
+			const feedResponse = FeedResponseDTO.fromFeed(updatedFeed);
+
+			res.json(createSuccessResponse("feed.statusUpdated", { feedId, status: updateStatusDTO.status, feed: feedResponse.toJSON() }, detectLanguage(req)));
+		} catch (error) {
+			console.error('Update feed status error:', error);
+			res.status(500).json(createErrorResponse("feed.statusUpdateFailed", error.message, null, detectLanguage(req)));
 		}
 	}
 }

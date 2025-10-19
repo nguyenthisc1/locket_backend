@@ -4,7 +4,7 @@ import { body } from 'express-validator';
 export class FeedDTO {
   constructor(data) {
     this.id = data._id || data.id;
-    this.userId = data.userId;
+    this.user = data.user;
     this.imageUrl = data.imageUrl; // URL for both images and videos
     this.caption = data.caption;
     this.isFrontCamera = data.isFrontCamera;
@@ -17,6 +17,7 @@ export class FeedDTO {
     this.width = data.width;
     this.height = data.height;
     this.fileSize = data.fileSize;
+    this.status = data.status || 'uploading';
     this.createdAt = data.createdAt;
   }
 
@@ -27,7 +28,7 @@ export class FeedDTO {
   toJSON() {
     return {
       id: this.id,
-      userId: this.userId,
+      user: this.user,
       imageUrl: this.imageUrl,
       caption: this.caption,
       isFrontCamera: this.isFrontCamera,
@@ -40,6 +41,7 @@ export class FeedDTO {
       width: this.width,
       height: this.height,
       fileSize: this.fileSize,
+      status: this.status,
       createdAt: this.createdAt
     };
   }
@@ -62,32 +64,32 @@ export class CreateFeedDTO {
         .withMessage('Image URL is required')
         .isURL()
         .withMessage('Image URL must be a valid URL'),
-      
+
       body('caption')
         .optional()
         .isLength({ max: 500 })
         .withMessage('Caption must be less than 500 characters'),
-      
+
       body('isFrontCamera')
         .optional()
         .isBoolean()
         .withMessage('isFrontCamera must be a boolean value'),
-      
+
       body('sharedWith')
         .optional()
         .isArray()
         .withMessage('Shared with must be an array of user IDs'),
-      
+
       body('sharedWith.*')
         .optional()
         .isMongoId()
         .withMessage('Invalid user ID in sharedWith array'),
-      
+
       body('location.lat')
         .optional()
         .isFloat({ min: -90, max: 90 })
         .withMessage('Latitude must be between -90 and 90'),
-      
+
       body('location.lng')
         .optional()
         .isFloat({ min: -180, max: 180 })
@@ -111,27 +113,27 @@ export class UpdateFeedDTO {
         .optional()
         .isLength({ max: 500 })
         .withMessage('Caption must be less than 500 characters'),
-      
+
       body('isFrontCamera')
         .optional()
         .isBoolean()
         .withMessage('isFrontCamera must be a boolean value'),
-      
+
       body('sharedWith')
         .optional()
         .isArray()
         .withMessage('Shared with must be an array of user IDs'),
-      
+
       body('sharedWith.*')
         .optional()
         .isMongoId()
         .withMessage('Invalid user ID in sharedWith array'),
-      
+
       body('location.lat')
         .optional()
         .isFloat({ min: -90, max: 90 })
         .withMessage('Latitude must be between -90 and 90'),
-      
+
       body('location.lng')
         .optional()
         .isFloat({ min: -180, max: 180 })
@@ -166,6 +168,23 @@ export class AddReactionDTO {
   }
 }
 
+// Update Feed Status DTO
+export class UpdateFeedStatusDTO {
+  constructor(data) {
+    this.status = data.status;
+  }
+
+  static validationRules() {
+    return [
+      body('status')
+        .notEmpty()
+        .withMessage('Status is required')
+        .isIn(['uploading', 'uploaded'])
+        .withMessage('Status must be either "uploading" or "uploaded"')
+    ];
+  }
+}
+
 // Feed Response DTO
 export class FeedResponseDTO {
   constructor(feed, user = null) {
@@ -181,19 +200,21 @@ export class FeedResponseDTO {
     // For aggregated feeds that already include user data
     const feedData = {
       ...aggregatedFeed,
-      userId: aggregatedFeed.user || aggregatedFeed.userId
+      user: aggregatedFeed.user || aggregatedFeed.userId
     };
     return new FeedResponseDTO(feedData, aggregatedFeed.user);
   }
 
   toJSON() {
     return {
-      feed: this.feed.toJSON(),
-      user: this.user ? {
-        id: this.user._id,
-        username: this.user.username,
-        avatarUrl: this.user.avatarUrl
-      } : null
+      feed: {
+        ...this.feed.toJSON(),
+        user: this.user ? {
+          id: this.user._id,
+          username: this.user.username,
+          avatarUrl: this.user.avatarUrl
+        } : null
+      },
     };
   }
 }
@@ -211,20 +232,20 @@ export class FeedListResponseDTO {
 
   static fromAggregatedFeeds(aggregatedFeeds, pagination = null) {
     console.log("Processing aggregated feeds:", aggregatedFeeds.length);
-    
+
     // For aggregated feeds that include user data
     const processedFeeds = aggregatedFeeds.map(feed => {
       console.log("Processing feed:", feed._id);
       // Create a proper feed structure that FeedDTO can handle
       const feedData = {
         ...feed,
-        userId: feed.user || feed.userId
+        user: feed.user || feed.userId
       };
       return FeedDTO.fromModel(feedData);
     });
-    
+
     console.log("Processed feeds count:", processedFeeds.length);
-    
+
     // Create instance with processed feeds directly
     const instance = new FeedListResponseDTO([], pagination);
     instance.feeds = processedFeeds;
@@ -255,17 +276,17 @@ export class SearchFeedsDTO {
         .optional()
         .isLength({ min: 1, max: 100 })
         .withMessage('Search query must be between 1 and 100 characters'),
-      
+
       body('userId')
         .optional()
         .isMongoId()
         .withMessage('Invalid user ID'),
-      
+
       body('limit')
         .optional()
         .isInt({ min: 1, max: 50 })
         .withMessage('Limit must be between 1 and 50'),
-      
+
       body('page')
         .optional()
         .isInt({ min: 1 })
